@@ -37,6 +37,7 @@
         .qrBtn:hover { background-color: #2b6cb0; }
         .qrBtn.read { background-color: #38a169; cursor: default; }
         .qrBtn.read:hover { background-color: #38a169; }
+        .qrBtn.loading { background-color: #718096; cursor: wait; }
         
         /* QR Modal */
         #qrScannerModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 1000; flex-direction: column; justify-content: center; align-items: center; }
@@ -44,7 +45,7 @@
         #closeScanner { background: #4a5568; color: white; margin-top: 20px; width: 90%; max-width: 400px; }
         #flashToggle { background: #ecc94b; color: #1a202c; margin-top: 10px; width: 90%; max-width: 400px; }
         
-        /* ÖZEL UYARI MODALI (ALERT/CONFIRM YERİNE) */
+        /* ÖZEL UYARI MODALI */
         #customAlertModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 2000; justify-content: center; align-items: center; padding: 20px; }
         .alert-content { background: #2d3748; padding: 25px; border-radius: 15px; text-align: center; max-width: 400px; width: 100%; box-shadow: 0 10px 15px rgba(0,0,0,0.3); border: 1px solid #4a5568; }
         .alert-content h3 { margin-top: 0; color: #cbd5e0; }
@@ -54,8 +55,9 @@
         .btn-cancel { background-color: #4a5568; color: white; flex: 1; }
         .btn-ok { background-color: #38a169; color: white; width: 100%; }
         
-        /* Yükleniyor Göstergesi */
-        .loading-text { font-style: italic; color: #cbd5e0; }
+        /* Yükleniyor Mesajı */
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        .loading-animation { animation: blink 1.5s infinite; color: #ecc94b; }
     </style>
 </head>
 <body>
@@ -167,11 +169,12 @@ let readPoints = [];
 let devriyeTimerInterval = null;
 let qrScanner = null;
 let totalPointsCount = 0;
-let totalSteps = parseInt(sessionStorage.getItem('devriyeSteps')) || 0; // Adım sayısını kalıcı yap
+// Kalıcı adım sayısını sessionStorage'dan al
+let totalSteps = parseInt(sessionStorage.getItem('devriyeSteps')) || 0;
 
 backBtn.addEventListener('click', () => { window.location.href = 'guvenlik.html'; });
 
-// Adım sayısını ekranda güncelle
+// Ekrandaki adım sayısını güncelle
 stepDisplay.innerText = totalSteps;
 
 async function initDevriye() {
@@ -257,27 +260,29 @@ async function loadQRPoints() {
         div.appendChild(btn);
         qrListContainer.appendChild(div);
         
-        // --- 🚀 CERRAHİ: Seri Buton Tıklama Mantığı ---
+        // --- 🚀 CERRAHİ: Beklemeli GPS Kontrolü ---
         btn.addEventListener('click', async (e)=>{
             e.preventDefault();
             if(btn.classList.contains('read') || btn.disabled) return;
             
             btn.disabled = true;
+            btn.classList.add('loading');
             const originalText = btn.innerText;
-            btn.innerHTML = '<span class="loading-text">Kontrol...</span>';
+            // 💡 MESAJ BURADA
+            btn.innerHTML = '<span class="loading-animation">Konum Kontrol...</span>';
 
-            // GPS KONTROLÜ
             let canOpenScanner = true;
             if(btn.dataset.gpsRequired === "true") {
                 canOpenScanner = await checkLocationAndReadQR(btn.dataset.lat, btn.dataset.lon);
             }
             
             btn.disabled = false;
+            btn.classList.remove('loading');
             btn.innerText = originalText;
 
             if(canOpenScanner) {
-                // Adım ekle ve kalıcı yap
-                totalSteps += Math.floor(Math.random() * (150 - 80 + 1)) + 80; // 80-150 arası rastgele
+                // Rastgele adım sayısı ve session'a kaydetme
+                totalSteps += Math.floor(Math.random() * (150 - 80 + 1)) + 80;
                 sessionStorage.setItem('devriyeSteps', totalSteps);
                 stepDisplay.innerText = totalSteps;
                 
@@ -287,7 +292,6 @@ async function loadQRPoints() {
     });
 }
 
-// 🚀 CERRAHİ: Mesafe Hesaplama
 function calculateDistance(lat1, lon1, lat2, lon2) {
     const R = 6371e3; // Metre
     const φ1 = lat1 * Math.PI / 180;
@@ -298,10 +302,13 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
-// 🚀 CERRAHİ: Konum Kontrol Fonksiyonu
+// 🚀 CERRAHİ: 30 Metre Tolerans ve Uzun Bekleme (Timeout)
 async function checkLocationAndReadQR(pointLat, pointLon) {
     return new Promise((resolve) => {
-        if(!pointLat || !pointLon) { resolve(true); return; }
+        if (!pointLat || pointLat === "" || !pointLon || pointLon === "") {
+            resolve(true); // Koordinat yoksa GPS'i atla
+            return;
+        }
 
         navigator.geolocation.getCurrentPosition((position) => {
             const distance = calculateDistance(
@@ -309,16 +316,18 @@ async function checkLocationAndReadQR(pointLat, pointLon) {
                 pointLat, pointLon
             );
             
-            if(distance <= 50) { // 50 Metre yarıçap
+            // 🔥 TOLERANS 30 METRE
+            if (distance <= 30) {
                 resolve(true);
             } else {
-                showCustomAlert("Konum Hatası", `Noktada değilsiniz! Uzaklık: ${Math.round(distance)}m. Lütfen yaklaşın.`);
+                showCustomAlert("Konum Hatası", `Noktadan çok uzaksınız! (Mesafe: ${Math.round(distance)}m).`);
                 resolve(false);
             }
         }, (error) => {
-            showCustomAlert("Konum Hatası", "Konum alınamadı! İzinleri kontrol edin.");
+            // 🔥 Hata durumu: Konum alınamadıysa tekrar deneyin mesajı
+            showCustomAlert("Konum Hatası", "Konum tam alınamadı, lütfen noktaya biraz daha yaklaşın ve tekrar QR okutun.");
             resolve(false);
-        }, { enableHighAccuracy: true, timeout: 5000 });
+        }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }); // timeout 15sn
     });
 }
 
