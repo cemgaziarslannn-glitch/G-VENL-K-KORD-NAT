@@ -14,6 +14,8 @@
         
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; background: #2d3748; padding: 15px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         .header h2 { margin: 0; font-size: 1.2rem; }
+        .header-right { text-align: right; }
+        .step-count { font-size: 0.8rem; color: #a0aec0; }
         
         button { padding: 12px 20px; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; transition: all 0.2s; }
         
@@ -60,6 +62,10 @@
     <div class="header">
         <button id="backBtn">⬅ Geri</button>
         <h2>Devriye</h2>
+        <div class="header-right">
+            <div style="font-size: 1.1rem; font-weight:bold;">👣 <span id="stepDisplay">0</span></div>
+            <div class="step-count">Tahmini Adım</div>
+        </div>
     </div>
 
     <div class="status-box">
@@ -152,12 +158,15 @@ const devriyeEndBtn = document.getElementById("devriyeEndBtn");
 const qrListContainer = document.getElementById('qrListContainer');
 const backBtn = document.getElementById("backBtn");
 const qrModal = document.getElementById('qrScannerModal');
+const stepDisplay = document.getElementById('stepDisplay');
 
 let devriyeStartTime = null;
 let readPoints = [];
 let devriyeTimerInterval = null;
 let qrScanner = null;
 let totalPointsCount = 0;
+let lastPointReadTime = null; // 👣 Adımsayar için
+let totalSteps = 0; // 👣 Adımsayar için
 
 backBtn.addEventListener('click', () => { window.location.href = 'guvenlik.html'; });
 
@@ -165,6 +174,7 @@ async function initDevriye() {
     const snap = await get(activeDevriyeRef);
     if (!snap.exists()) {
         devriyeStartTime = new Date();
+        lastPointReadTime = devriyeStartTime; // Başlangıç süresi
         readPoints = [];
         await set(activeDevriyeRef, {
             startTime: devriyeStartTime.toISOString(),
@@ -174,6 +184,7 @@ async function initDevriye() {
         const val = snap.val();
         devriyeStartTime = new Date(val.startTime);
         readPoints = Array.isArray(val.readPoints) ? val.readPoints : [];
+        lastPointReadTime = new Date(); // Sayfayı yenilerse şu anı al
     }
     startDevriyeTimer();
     loadQRPoints();
@@ -220,6 +231,13 @@ async function loadQRPoints() {
         btn.dataset.qrid = point.qrId;
         btn.dataset.point = point.name;
         
+        // --- 🚀 CERRAHİ DEĞİŞİKLİK BURADA ---
+        btn.dataset.lat = point.lat || "";
+        btn.dataset.lon = point.lon || "";
+        // Senin veritabanındaki "gpsRequired" kelimesini kontrol ediyoruz
+        btn.dataset.gpsRequired = point.gpsRequired || "false"; 
+        // -------------------------------------
+        
         const span = document.createElement('span');
         span.innerText = point.name;
         
@@ -237,11 +255,70 @@ async function loadQRPoints() {
         div.appendChild(btn);
         qrListContainer.appendChild(div);
         
-        btn.addEventListener('click', ()=>{
+        btn.addEventListener('click', async ()=>{
             if(btn.classList.contains('read')) return;
+            
+            // --- 🚀 CERRAHİ DEĞİŞİKLİK BURADA ---
+            // "true" ise GPS kontrolü çalışır, değilse blöf yapar
+            if(btn.dataset.gpsRequired === "true") {
+                const isPointValid = await checkLocationAndReadQR(btn.dataset.lat, btn.dataset.lon);
+                if(!isPointValid) return;
+            }
+            // -------------------------------------
+
+            calculateSteps();
             startScanner(point.name, btn);
         });
     });
+}
+
+// 🚀 CERRAHİ: Mesafe Hesaplama (Sadece GPS kontrolü için kullanılacak)
+function calculateDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371e3; // Metre
+    const φ1 = lat1 * Math.PI / 180;
+    const φ2 = lat2 * Math.PI / 180;
+    const Δφ = (lat2 - lat1) * Math.PI / 180;
+    const Δλ = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2) * Math.sin(Δλ/2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+// 🚀 CERRAHİ: Konum Kontrol Fonksiyonu
+async function checkLocationAndReadQR(pointLat, pointLon) {
+    return new Promise((resolve) => {
+        if(!pointLat || !pointLon) { resolve(true); return; }
+
+        navigator.geolocation.getCurrentPosition((position) => {
+            const distance = calculateDistance(
+                position.coords.latitude, position.coords.longitude,
+                pointLat, pointLon
+            );
+            
+            if(distance <= 40) { // 40 Metre yarıçap
+                resolve(true);
+            } else {
+                showCustomAlert("Konum Hatası", `Noktada değilsiniz! Uzaklık: ${Math.round(distance)}m. Lütfen yaklaşın.`);
+                resolve(false);
+            }
+        }, (error) => {
+            showCustomAlert("Konum Hatası", "Konum alınamadı! Konum izinlerini açın.");
+            resolve(false);
+        }, { enableHighAccuracy: true });
+    });
+}
+
+// 👣 CERRAHİ: Adım Sayar Mantığı (Süreye Dayalı)
+function calculateSteps() {
+    const now = new Date();
+    const diffInMinutes = (now - lastPointReadTime) / (1000 * 60);
+    lastPointReadTime = now; // Süreyi güncelle
+    
+    // Dakika başına ortalama 100-120 adım kabul edelim
+    const stepsToAdd = Math.floor(diffInMinutes * 110);
+    
+    // Çok kısa süre ise min 50 adım ekle
+    totalSteps += Math.max(stepsToAdd, 50);
+    stepDisplay.innerText = totalSteps;
 }
 
 async function startScanner(pointName, btnEl){
@@ -336,7 +413,8 @@ async function finishDevriye(isFull) {
         status: isFull ? "Tam devriye" : "Eksik devriye",
         points: readPoints,
         timestamp: Date.now(),
-        displayDate: devriyeStartTime.toLocaleDateString('tr-TR')
+        displayDate: devriyeStartTime.toLocaleDateString('tr-TR'),
+        totalSteps: totalSteps // Adım sayısını da kayda ekle
     };
 
     const userKey = currentUser.username || currentUser.name;
