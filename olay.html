@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CGA Güvenlik Sistemi - Durum Bildir</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
+
+    <style>
+        body { margin:0; font-family:'Montserrat', sans-serif; background: linear-gradient(135deg, #2c3e50, #34495e); color:#ecf0f1; display:flex; justify-content:center; align-items:flex-start; padding-top:30px; }
+        .container { background: rgba(44,62,80,0.95); padding:20px 30px; border-radius:16px; width:90%; max-width:500px; box-shadow:0 6px 20px rgba(0,0,0,0.5); position: relative; }
+        h1 { text-align:center; margin-bottom:15px; color: #f1c40f; font-size: 22px; text-transform: uppercase; }
+        .status-info { background: #1a252f; padding: 12px; border-radius: 8px; margin-bottom: 15px; border-left: 5px solid #f1c40f; font-size: 13px; }
+        label { display:block; margin-top:10px; margin-bottom:4px; font-weight:600; font-size: 13px; }
+        label span { color: #e74c3c; } 
+        input, textarea { width:100%; padding:10px; border:none; border-radius:8px; margin-bottom:5px; font-size:14px; box-sizing: border-box; background: #ecf0f1; color: #2c3e50; }
+        textarea { resize:none; height:120px; }
+        
+        /* Karakter Sayacı Stili */
+        .char-counter { text-align: right; font-size: 11px; color: #bdc3c7; margin-top: -5px; margin-bottom: 10px; }
+        .limit-warn { color: #e74c3c; font-weight: bold; display: none; margin-bottom: 10px; font-size: 12px; text-align: center; background: rgba(231, 76, 60, 0.1); padding: 5px; border-radius: 5px; }
+
+        button { width:100%; padding:12px; margin-top:10px; border:none; border-radius:10px; font-weight:600; cursor:pointer; transition:0.3s; }
+        #submitBtn { background:#27ae60; color:#fff; font-size: 16px; }
+        #submitBtn:disabled { background: #7f8c8d; cursor: not-allowed; opacity: 0.6; }
+        #backBtn { background:#c0392b; color:#fff; }
+        #photoBtns { display: flex; gap: 10px; }
+        #photoBtns button { background: #3498db; color: white; flex: 1; }
+        #preview { margin-top:10px; max-width:100%; border-radius:8px; display:none; border: 2px solid #f1c40f; }
+        #cameraModal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); justify-content:center; align-items:center; flex-direction:column; z-index:1000; }
+        #cameraModal video { width:90%; max-width:400px; border-radius:8px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>DURUM BİLDİRİM FORMU</h1>
+
+    <div class="status-info">
+        <strong>Rapor No:</strong> <span id="raporNoLabel">...</span><br>
+        <strong>Görevli:</strong> <span id="displayName">Tespit ediliyor...</span>
+    </div>
+
+    <label>Görev Yeri / Blok <span>*</span></label>
+    <input type="text" id="olayLocation" placeholder="Örn: A Blok Giriş" required>
+
+    <label>Tespit Yeri <span>*</span></label>
+    <input type="text" id="tespitYeri" placeholder="Örn: 3. Kat Koridor" required>
+
+    <label>Tespitin Konusu <span>*</span></label>
+    <input type="text" id="tespitKonusu" placeholder="Örn: Kapı Açık / Rutin Kontrol" required>
+
+    <label>Durum Detayı ve Yorum <span>*</span></label>
+    <textarea id="olayDesc" maxlength="1350" placeholder="Durumu detaylı şekilde buraya yazınız..." required></textarea>
+    <div id="charCounter" class="char-counter">0 / 1350</div>
+    <div id="limitWarning" class="limit-warn">⚠️ Maksimum karakter sınırına ulaştınız!</div>
+
+    <div id="photoBtns">
+        <button id="takePhotoBtn">📷 Foto Çek</button>
+        <button id="choosePhotoBtn">📁 Galeri</button>
+    </div>
+    <img id="preview">
+    <input type="file" id="galleryInput" accept="image/*" style="display:none;">
+
+    <button id="submitBtn">OLAYI GÖNDER</button>
+    <button id="backBtn">GÜVENLİK PANELİNE DÖN</button>
+
+    <div id="message" style="text-align:center; margin-top:10px; font-weight:bold;"></div>
+</div>
+
+<div id="cameraModal">
+    <video id="video" autoplay playsinline></video>
+    <div style="display:flex; gap:10px; margin-top:10px;">
+        <button id="snapBtn" style="background:#27ae60; color:white; padding:10px 20px;">ÇEK</button>
+        <button id="closeModalBtn" style="background:#c0392b; color:white; padding:10px 20px;">İPTAL</button>
+    </div>
+</div>
+
+<script type="module">
+import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+import { getDatabase, ref, push, get, set, remove, query, limitToFirst } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-database.js";
+
+// Firebase ve Kullanıcı Ayarları
+const siteID = localStorage.getItem("siteID");
+const siteConfig = JSON.parse(localStorage.getItem("siteConfig"));
+const app = getApps().find(a => a.name === `siteApp-${siteID}`) || initializeApp(siteConfig, `siteApp-${siteID}`);
+const db = getDatabase(app);
+
+const merkezConfig = {
+    apiKey: "AIzaSyAM5NHBpRHIlttNXwJ9YKDypR4eoyQAXrfXZSbIM",
+    authDomain: "kolartguvenlik-e002d.firebaseapp.com",
+    databaseURL: "https://kolartguvenlik-e002d-default-rtdb.firebaseio.com",
+    projectId: "kolartguvenlik-e002d"
+};
+const merkezApp = getApps().find(a => a.name === "merkezApp") || initializeApp(merkezConfig, "merkezApp");
+const merkezDb = getDatabase(merkezApp);
+
+const user = JSON.parse(sessionStorage.getItem('currentUser'));
+const userKey = user.username || user.name || "Bilinmeyen_ID"; 
+const guvenlikGorunurAd = (user.name && user.name.trim() !== "") ? (user.name + " " + (user.surname || "")).trim() : userKey;
+document.getElementById('displayName').innerText = guvenlikGorunurAd;
+
+// --- KARAKTER SAYACI MANTIĞI ---
+const olayDesc = document.getElementById('olayDesc');
+const charCounter = document.getElementById('charCounter');
+const limitWarning = document.getElementById('limitWarning');
+
+olayDesc.addEventListener('input', () => {
+    const len = olayDesc.value.length;
+    charCounter.innerText = `${len} / 1350`;
+    
+    if (len >= 1350) {
+        limitWarning.style.display = 'block';
+        charCounter.style.color = '#e74c3c';
+    } else {
+        limitWarning.style.display = 'none';
+        charCounter.style.color = '#bdc3c7';
+    }
+});
+
+async function setupRaporNo() {
+    const counterRef = ref(merkezDb, "sites/" + siteID + "/reportCounter");
+    const snapshot = await get(counterRef);
+    let count = snapshot.exists() ? snapshot.val() : 0;
+    let next = count + 1;
+    document.getElementById('raporNoLabel').innerText = next.toString().padStart(4, '0');
+    return next;
+}
+let currentRaporNo = await setupRaporNo();
+
+// Fotoğraf İşlemleri
+let selectedBase64 = null, stream = null;
+const preview = document.getElementById('preview');
+
+document.getElementById('takePhotoBtn').addEventListener('click', async()=>{
+    try {
+        document.getElementById('cameraModal').style.display='flex';
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode:'environment' } });
+        document.getElementById('video').srcObject = stream;
+    } catch(err) { alert("Kameraya erişilemedi!"); }
+});
+
+document.getElementById('snapBtn').addEventListener('click', ()=>{
+    const canvas = document.createElement('canvas');
+    canvas.width = 640; canvas.height = 480;
+    canvas.getContext('2d').drawImage(document.getElementById('video'), 0,0,640,480);
+    selectedBase64 = canvas.toDataURL('image/jpeg', 0.8);
+    preview.src = selectedBase64; preview.style.display='block';
+    document.getElementById('cameraModal').style.display='none';
+    if(stream) stream.getTracks().forEach(t=>t.stop());
+});
+
+document.getElementById('choosePhotoBtn').addEventListener('click', ()=> document.getElementById('galleryInput').click());
+document.getElementById('galleryInput').addEventListener('change', (e)=>{
+    const reader = new FileReader();
+    reader.onload = ev => { selectedBase64 = ev.target.result; preview.src = selectedBase64; preview.style.display='block'; };
+    reader.readAsDataURL(e.target.files[0]);
+});
+
+// --- ANA GÖNDERİM VE KOTA MANTIĞI ---
+document.getElementById('submitBtn').addEventListener('click', async(e)=>{
+    const btn = e.target;
+    const msg = document.getElementById('message');
+    
+    const loc = document.getElementById('olayLocation').value.trim();
+    const tYer = document.getElementById('tespitYeri').value.trim();
+    const tKonu = document.getElementById('tespitKonusu').value.trim();
+    const desc = document.getElementById('olayDesc').value.trim();
+
+    if (!loc || !tYer || !tKonu || !desc) {
+        msg.style.color = "#e74c3c";
+        msg.innerText = "⚠️ Lütfen tüm alanları doldurun!";
+        return;
+    }
+
+    btn.disabled = true;
+    btn.innerText = "GÖNDERİLİYOR...";
+
+    const raporData = {
+        raporNo: currentRaporNo.toString().padStart(4, '0'),
+        location: loc,
+        tespitYeri: tYer,
+        konu: tKonu,
+        desc: desc,
+        guvenlik: guvenlikGorunurAd,
+        date: new Date().toLocaleDateString('tr-TR'),
+        time: new Date().toLocaleTimeString('tr-TR'),
+        photoData: selectedBase64,
+        timestamp: Date.now() // Kota silme işlemi için zaman damgası
+    };
+
+    try {
+        const userEventsRef = ref(db, 'securityEvents/' + userKey);
+        
+        // 1. Kota Kontrolü (50 limit)
+        const snapshot = await get(userEventsRef);
+        if (snapshot.exists()) {
+            const events = [];
+            snapshot.forEach(child => { events.push({ key: child.key, ...child.val() }); });
+            
+            if (events.length >= 50) {
+                // En eski kaydı bul ve sil (FIFO)
+                const oldestKey = events[0].key; 
+                await remove(ref(db, `securityEvents/${userKey}/${oldestKey}`));
+            }
+        }
+
+        // 2. Yeni Veriyi Kaydet
+        await push(userEventsRef, raporData);
+        await set(ref(merkezDb, "sites/" + siteID + "/reportCounter"), currentRaporNo);
+        await set(ref(merkezDb, "sites/" + siteID + "/hasEvent"), true);
+
+        msg.style.color = "#2ecc71";
+        msg.innerText = "✅ BİLDİRİM BAŞARIYLA GÖNDERİLDİ!";
+        setTimeout(()=> window.location.href='guvenlik.html', 2000);
+
+    } catch (err) {
+        console.error(err);
+        msg.style.color = "#e74c3c";
+        msg.innerText = "❌ HATA OLUŞTU!";
+        btn.disabled = false;
+        btn.innerText = "OLAYI GÖNDER";
+    }
+});
+
+document.getElementById('closeModalBtn').addEventListener('click', ()=>{
+    document.getElementById('cameraModal').style.display='none';
+    if(stream) stream.getTracks().forEach(t=>t.stop());
+});
+document.getElementById('backBtn').addEventListener('click', ()=> window.location.href='guvenlik.html');
+</script>
+</body>
+</html>

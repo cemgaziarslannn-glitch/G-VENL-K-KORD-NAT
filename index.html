@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0b1a27">
+<title>CGA Güvenlik Sistemleri - Giriş Paneli</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
+<link rel="manifest" href="manifest.json">
+
+<style>
+:root {
+  color-scheme: dark;
+  --cga-bg-main: #0b1a27;
+  --cga-bg-secondary: #1a2b3f;
+  --cga-gold: #f1c40f;
+  --cga-green: #2ecc71;
+  --cga-green-dark: #27ae60;
+  --cga-text-main: #ecf0f1;
+  --cga-card-bg: rgba(255,255,255,0.06);
+  --cga-border-soft: rgba(255,255,255,0.12);
+}
+
+html, body {
+  margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+  font-family: 'Montserrat', sans-serif;
+  display: flex; justify-content: center; align-items: center;
+  background: radial-gradient(circle at top, rgba(241,196,15,0.08), transparent 40%),
+              linear-gradient(135deg, var(--cga-bg-main), var(--cga-bg-secondary));
+  color: var(--cga-text-main);
+  -webkit-touch-callout: none;
+}
+
+.container {
+  width: 380px;
+  padding: 40px 30px 70px;
+  border-radius: 26px;
+  background: var(--cga-card-bg);
+  backdrop-filter: blur(22px);
+  box-shadow: 0 0 0 1px var(--cga-border-soft), 0 20px 50px rgba(0,0,0,0.7);
+  text-align: center;
+  transform: translateY(-20px);
+}
+
+h1 { font-size:26px; font-weight:800; color: var(--cga-gold); margin-bottom:8px; cursor:pointer; }
+
+.site-name{
+  display:none; font-size:28px; font-weight:800; letter-spacing:1px; margin:1px 0 18px;
+  color:#2ecc71; text-shadow:0 0 10px rgba(46,204,113,0.6),0 0 25px rgba(46,204,113,0.4);
+}
+
+.input-group { display:none; flex-direction:column; text-align:left; margin-bottom:28px; }
+.input-group.active { display:flex; }
+
+input[type="text"], input[type="password"] { width:100%; padding:12px; margin:8px 0; border-radius:12px; border:none; background: rgba(255,255,255,0.1); color:white; font-size:14px;}
+input::placeholder { color: rgba(236,240,241,0.6); }
+
+.remember {display:flex; align-items:center; gap:8px; font-size:14px; margin-top:8px;}
+.remember input[type="checkbox"] { cursor:pointer; }
+.remember label { cursor:pointer; color:#fff; }
+
+.loginBtn {
+  width: 150px;
+  padding: 13px;
+  border: none;
+  border-radius: 16px;
+  font-weight: 700;
+  font-size: 16px;
+  cursor: pointer;
+  margin-bottom: 0;
+  background: linear-gradient(90deg, var(--cga-green-dark), var(--cga-green));
+  box-shadow: 0 6px 20px rgba(46,204,113,0.45);
+  transition: 0.25s;
+}
+.loginBtn:hover {
+  background: linear-gradient(90deg, #2ecc71, #27ae60);
+  transform: translateY(-2px) scale(1.05);
+}
+
+.message {
+  margin-top:15px;
+  margin-bottom:40px;
+  color:#e74c3c;
+  font-weight:600;
+  text-align:center;
+  min-height:20px;
+}
+
+.cga-logo { width:450px; max-width:80%; margin:20px auto 0; }
+.corner-bottom{ position: fixed; bottom:12px; right:14px; font-size:11px; color: rgba(189,195,199,0.7); user-select:none; pointer-events:none; }
+.corner-top{ position: fixed; top:10px; right:14px; font-size:10px; color: rgba(189,195,199,0.7); user-select:none; pointer-events:none; }
+
+.securityText{
+  font-size:16px; font-weight:700; color: var(--cga-gold); margin-bottom:20px; cursor:pointer; text-align:center;
+  padding:8px 0; letter-spacing:0.5px; transition:0.25s;
+}
+.securityText:hover{ transform: scale(1.06); color:#f7d35e; }
+
+#qr-reader {
+  width: 95vw;
+  height: 70vh;
+  max-width: 600px;
+  max-height: 600px;
+  margin: auto;
+  border-radius: 12px;
+  background: #000;
+}
+
+.modal-content { max-width: 95%; }
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.modal.hidden { display: none; }
+
+.modal-box {
+  background: #1e1e1e;
+  padding: 20px;
+  border-radius: 12px;
+  width: 85%;
+  max-width: 320px;
+  text-align: center;
+  color: #fff;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.modal-actions button {
+  flex: 1;
+  padding: 10px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+}
+
+#cancelDisconnect { background: #555; color: #fff; }
+#confirmDisconnect { background: #e74c3c; color: #fff; }
+
+.disconnect-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.55); display: flex; align-items: center; justify-content: center; z-index: 9999; }
+.disconnect-modal.hidden { display: none; }
+
+* { -webkit-user-select: none; -ms-user-select: none; user-select: none; }
+/* iPhone input yazma fix */
+input, textarea {
+  -webkit-user-select: text !important;
+  user-select: text !important;
+  -webkit-touch-callout: default;
+  pointer-events: auto;
+}
+
+
+.choiceBtn {
+  flex:1;
+  border:none;
+  border-radius:10px;
+  font-weight:700;
+  cursor:pointer;
+  background: rgba(255,255,255,0.1);
+  color:#fff;
+  transition:0.25s;
+}
+.choiceBtn:hover { background: rgba(46,204,113,0.3); transform: scale(1.05); }
+.choiceBtn.active { background: linear-gradient(90deg,#2ecc71,#27ae60); color:#fff; }
+
+.modal { position: fixed; inset:0; background: rgba(0,0,0,0.55); display:flex; align-items:center; justify-content:center; z-index:9999; transition:0.3s; }
+.modal.hidden { display:none; }
+.modal-box { background:#1e1e1e; border-radius:12px; color:#fff; }
+
+#secLoginBtn {
+  width: 60%;
+  max-width: 220px;
+  padding: 14px 0;
+  margin: 20px auto 0;
+  display: block;
+  font-size: 18px;
+  border-radius: 18px;
+  box-shadow:0 6px 20px rgba(46,204,113,0.45);
+  cursor:pointer;
+  background: linear-gradient(90deg, var(--cga-green-dark), var(--cga-green));
+  color:#fff;
+  font-weight:700;
+  transition:0.25s;
+}
+#secLoginBtn:hover { background: linear-gradient(90deg,#2ecc71,#27ae60); transform: translateY(-2px) scale(1.05); }
+
+</style>
+</head>
+<body>
+
+<div class="container">
+  <img src="logo.png" class="cga-logo" alt="CGA Logo">
+
+  <div id="qrButtonsWrapper" style="display:flex; gap:8px; justify-content:center; align-items:center; background: rgba(255,255,255,0.05); padding:6px 8px; border-radius:12px; max-width:300px; margin:auto;">
+    <button id="startQR" class="choiceBtn active" style="font-size:14px; padding:6px 10px;">📷 QR Kodu Okut</button>
+    <button id="enterCode" class="choiceBtn" style="font-size:14px; padding:6px 10px;">⌨️ Kod Gir</button>
+  </div>
+
+  <div style="margin-top:10px; text-align:center;">
+    <div id="siteName" class="site-name" style="font-size:24px;"></div>
+    <div id="qrMessage" style="margin-top:4px; color:#f1c40f; font-size:14px;"></div>
+  </div>
+
+  <!-- Kod gir modal -->
+  <div id="codeModal" class="modal hidden">
+    <div class="modal-box" style="padding:20px; max-width:300px; text-align:center;">
+      <h3 style="margin-bottom:12px; color:#f1c40f;">Site Kodunu Gir</h3>
+      <input id="codeInput" type="text" maxlength="4" placeholder="0000" style="width:60%; padding:8px; border-radius:8px; border:none; text-align:center; font-size:16px;">
+      <div style="margin-top:16px; display:flex; gap:10px; justify-content:center;">
+        <button id="codeCancel" class="loginBtn" style="padding:6px 12px; font-size:14px;">İptal</button>
+        <button id="codeConfirm" class="loginBtn" style="padding:6px 12px; font-size:14px;">Onayla</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="qrModal" class="modal hidden">
+      <div class="modal-content">
+        <div id="qr-reader"></div>
+        <button id="closeQRModal" class="loginBtn">Kapat</button>
+      </div>
+    </div>
+
+  <div class="securityText" id="securityBtn">🔐 Güvenlik Girişi</div>
+
+  <div id="securityGroup" class="input-group active">
+    <input type="text" id="secUsername" placeholder="Kullanıcı Adı">
+    <input type="password" id="secPassword" placeholder="Şifre">
+    <div class="remember">
+      <input type="checkbox" id="secRemember">
+      <label for="secRemember">Kullanıcıyı hatırla</label>
+    </div>
+    <button class="loginBtn" id="secLoginBtn">Giriş Yap</button>
+  </div>
+
+  <div class="message" id="message"></div>
+</div>
+
+<div class="corner-bottom">© 2025 CGA Güvenlik Sistemleri</div>
+<div class="corner-top">v1.0.0</div>
+
+<script src="https://unpkg.com/html5-qrcode"></script>
+<script type="module">
+const _0x3edad6=_0xf459;(function(_0x26408e,_0x3cbd84){const _0x2efbe2=_0xf459,_0x19ba1f=_0x26408e();while(!![]){try{const _0x541ebb=parseInt(_0x2efbe2(0x224))/0x1*(-parseInt(_0x2efbe2(0x24d))/0x2)+-parseInt(_0x2efbe2(0x206))/0x3+parseInt(_0x2efbe2(0x25a))/0x4*(parseInt(_0x2efbe2(0x242))/0x5)+-parseInt(_0x2efbe2(0x23a))/0x6+-parseInt(_0x2efbe2(0x24a))/0x7+-parseInt(_0x2efbe2(0x20f))/0x8+parseInt(_0x2efbe2(0x1f1))/0x9*(parseInt(_0x2efbe2(0x259))/0xa);if(_0x541ebb===_0x3cbd84)break;else _0x19ba1f['push'](_0x19ba1f['shift']());}catch(_0x2cee03){_0x19ba1f['push'](_0x19ba1f['shift']());}}}(_0x2c55,0x3dbad));import{initializeApp,getApps}from'https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js';import{getDatabase,ref,get,child}from'https://www.gstatic.com/firebasejs/12.1.0/firebase-database.js';const merkezConfig={'apiKey':_0x3edad6(0x227),'authDomain':_0x3edad6(0x217),'databaseURL':_0x3edad6(0x245),'projectId':_0x3edad6(0x253),'storageBucket':'kolartguvenlik-e002d.firebasestorage.app','messagingSenderId':_0x3edad6(0x1fb),'appId':_0x3edad6(0x229),'measurementId':_0x3edad6(0x1fa)},merkezApp=getApps()[_0x3edad6(0x218)](_0x543574=>_0x543574[_0x3edad6(0x233)]==='[DEFAULT]')||initializeApp(merkezConfig),merkezDB=getDatabase(merkezApp),siteNameEl=document[_0x3edad6(0x1f8)](_0x3edad6(0x24b)),securityBtn=document['getElementById'](_0x3edad6(0x252)),securityGroup=document['getElementById']('securityGroup'),msg=document[_0x3edad6(0x1f8)](_0x3edad6(0x24e)),secUsername=document[_0x3edad6(0x1f8)](_0x3edad6(0x1f9)),secPassword=document[_0x3edad6(0x1f8)](_0x3edad6(0x21e)),secRemember=document[_0x3edad6(0x1f8)]('secRemember'),qrBtn=document[_0x3edad6(0x1f8)](_0x3edad6(0x254)),codeBtn=document[_0x3edad6(0x1f8)](_0x3edad6(0x209)),codeModal=document[_0x3edad6(0x1f8)](_0x3edad6(0x23c)),codeInput=document['getElementById'](_0x3edad6(0x246)),codeCancel=document['getElementById']('codeCancel'),codeConfirm=document['getElementById'](_0x3edad6(0x23d)),qrModal=document['getElementById']('qrModal'),closeQRModal=document[_0x3edad6(0x1f8)](_0x3edad6(0x238));let qrReader=null;function _0x2c55(){const _0x46b8ac=['enterCode','clear','Site\x20yüklenirken\x20hata\x20oluştu!','forEach','siteConfig','Yetki\x20hatalı!','1896880mwiejn','QR\x20tarama:','tr-TR','href','remove','password','currentUser','load','kolartguvenlik-e002d.firebaseapp.com','find','test','/config','admin','confirmDisconnect','security','secPassword','settings/siteName','environment','innerWidth','type','log','2kPRhoF','disconnectModal','qrButtonsWrapper','AIzaSyAM5NHBpRHIlttNXwJ9YKDypR4eoyQbDeM','cancelDisconnect','1:212955174898:web:f77501991c1648fb66bd6b','Kullanıcı\x20adı\x20ve\x20şifre\x20gerekli!','flex','exists','style','stringify','Bağlantı\x20hatası!','setItem','classList','parse','name','mouseleave','İşlem\x20başarılı,\x20şimdi\x20giriş\x20yapabilirsiniz.','onclick','getItem','closeQRModal','val','997080ftdsCi','trim','codeModal','codeConfirm','innerHTML','stop','sites/','securityUser','5ZlCuUN','none','Site\x20config\x20bulunamadı!','https://kolartguvenlik-e002d-default-rtdb.firebaseio.com','codeInput','mod.html','textContent','click','1466528FDDdlW','siteName','add','279428isDmPk','message','min','siteApp-','error','securityBtn','kolartguvenlik-e002d','startQR','Şifre\x20hatalı!','value','display','location','10QhMvEB','1704688RyucPU','username','sirket.html','qrMessage','8840511dAMdHT','Site\x20başarıyla\x20yüklendi!','secLoginBtn','qr-reader','shortCodes/','touchstart','Proje\x20bağlantısından\x20ayrıldınız.','getElementById','secUsername','G-TCGDNDYY6Y','212955174898','addEventListener','removeItem','QR\x20durdurulamadı:','Kullanıcı\x20bulunamadı!','checked','mousedown','mouseup','company','hidden','catch','790152RfMVBv','Kod\x20başarıyla\x20yüklendi,\x20giriş\x20yapabilirsiniz!','siteID'];_0x2c55=function(){return _0x46b8ac;};return _0x2c55();}const modal=document[_0x3edad6(0x1f8)](_0x3edad6(0x225)),cancelBtn=document[_0x3edad6(0x1f8)](_0x3edad6(0x228)),confirmBtn=document[_0x3edad6(0x1f8)](_0x3edad6(0x21c));function hideQRButtons(){const _0x2492c7=_0x3edad6;qrBtn[_0x2492c7(0x22d)]['display']=_0x2492c7(0x243),codeBtn['style'][_0x2492c7(0x257)]='none',document['getElementById'](_0x2492c7(0x226))['style'][_0x2492c7(0x257)]=_0x2492c7(0x243);}function showQRButtons(){const _0x27f390=_0x3edad6;qrBtn[_0x27f390(0x22d)]['display']=_0x27f390(0x22b),codeBtn[_0x27f390(0x22d)]['display']=_0x27f390(0x22b),document[_0x27f390(0x1f8)](_0x27f390(0x226))[_0x27f390(0x22d)][_0x27f390(0x257)]='flex';}window[_0x3edad6(0x1fc)](_0x3edad6(0x216),async()=>{const _0x24ced3=_0x3edad6;securityBtn['click']();const _0x116fc7=JSON[_0x24ced3(0x232)](localStorage['getItem'](_0x24ced3(0x241)));_0x116fc7&&(secUsername[_0x24ced3(0x256)]=_0x116fc7[_0x24ced3(0x25b)],secPassword[_0x24ced3(0x256)]=_0x116fc7[_0x24ced3(0x214)],secRemember[_0x24ced3(0x200)]=!![]);const _0x4035b1=localStorage[_0x24ced3(0x237)](_0x24ced3(0x208)),_0x33fe46=localStorage[_0x24ced3(0x237)](_0x24ced3(0x20d));if(_0x4035b1&&_0x33fe46){const _0x143d18=JSON[_0x24ced3(0x232)](_0x33fe46);let _0x5803bf=getApps()[_0x24ced3(0x218)](_0x28b713=>_0x28b713[_0x24ced3(0x233)]==_0x24ced3(0x250)+_0x4035b1);if(!_0x5803bf)_0x5803bf=initializeApp(_0x143d18,_0x24ced3(0x250)+_0x4035b1);const _0x24292f=getDatabase(_0x5803bf);hideQRButtons(),await loadSiteName(_0x24292f);}});async function loginUser(_0x6e2666,_0x17300f,_0x6f78da){const _0x16ffdb=_0x3edad6;_0x6e2666=_0x6e2666[_0x16ffdb(0x23b)](),_0x17300f=_0x17300f[_0x16ffdb(0x23b)](),_0x6e2666=_0x6e2666['toLocaleUpperCase'](_0x16ffdb(0x211)),msg[_0x16ffdb(0x248)]='';const _0x2f250a=localStorage[_0x16ffdb(0x237)](_0x16ffdb(0x20d))?JSON['parse'](localStorage[_0x16ffdb(0x237)](_0x16ffdb(0x20d))):null;if(!_0x2f250a){msg['textContent']='Lütfen\x20QR\x20kodu\x20okutunuz!';return;}if(!_0x6e2666||!_0x17300f){msg[_0x16ffdb(0x248)]=_0x16ffdb(0x22a);return;}try{const _0x536cc0=localStorage['getItem'](_0x16ffdb(0x208));let _0x49eefb=getApps()['find'](_0x196c3=>_0x196c3[_0x16ffdb(0x233)]==_0x16ffdb(0x250)+_0x536cc0);if(!_0x49eefb)_0x49eefb=initializeApp(_0x2f250a,_0x16ffdb(0x250)+_0x536cc0);const _0x558f57=getDatabase(_0x49eefb),_0x3d10ec=await get(child(ref(_0x558f57),'admin'));if(_0x3d10ec[_0x16ffdb(0x22c)]()){const _0x32d3e5=_0x3d10ec['val']();if(_0x6e2666===_0x32d3e5[_0x16ffdb(0x25b)]&&_0x17300f===_0x32d3e5['password']){sessionStorage[_0x16ffdb(0x230)](_0x16ffdb(0x215),JSON['stringify']({'username':_0x6e2666,'type':_0x16ffdb(0x21b)})),window[_0x16ffdb(0x258)]['href']=_0x16ffdb(0x247);return;}}const _0x6e7387=await get(child(ref(_0x558f57),'users/'+_0x6e2666));if(!_0x6e7387['exists']()){msg[_0x16ffdb(0x248)]=_0x16ffdb(0x1ff);return;}const _0x3a2570=_0x6e7387[_0x16ffdb(0x239)]();if(_0x3a2570[_0x16ffdb(0x214)]!==_0x17300f){msg[_0x16ffdb(0x248)]=_0x16ffdb(0x255);return;}sessionStorage['setItem'](_0x16ffdb(0x215),JSON[_0x16ffdb(0x22e)]({'username':_0x3a2570[_0x16ffdb(0x25b)],'type':_0x3a2570['type']}));if(_0x6f78da===_0x16ffdb(0x21d)){if(secRemember[_0x16ffdb(0x200)])localStorage[_0x16ffdb(0x230)](_0x16ffdb(0x241),JSON[_0x16ffdb(0x22e)]({'username':_0x6e2666,'password':_0x17300f}));else localStorage['removeItem'](_0x16ffdb(0x241));if(_0x3a2570[_0x16ffdb(0x222)]===_0x16ffdb(0x203))window[_0x16ffdb(0x258)][_0x16ffdb(0x212)]=_0x16ffdb(0x25c);else{if(_0x3a2570[_0x16ffdb(0x222)]===_0x16ffdb(0x21d))window[_0x16ffdb(0x258)][_0x16ffdb(0x212)]='guvenlik.html';else{if(_0x3a2570['type']===_0x16ffdb(0x21b))window[_0x16ffdb(0x258)][_0x16ffdb(0x212)]='yetkili.html';else msg[_0x16ffdb(0x248)]=_0x16ffdb(0x20e);}}}}catch(_0x415478){console['error'](_0x415478),msg[_0x16ffdb(0x248)]=_0x16ffdb(0x22f);}}document[_0x3edad6(0x1f8)](_0x3edad6(0x1f3))[_0x3edad6(0x1fc)]('click',()=>loginUser(secUsername['value'],secPassword['value'],_0x3edad6(0x21d)));async function loadSiteName(_0x2cbd6f){const _0x1e635d=_0x3edad6;try{const _0x58d3c=await get(child(ref(_0x2cbd6f),_0x1e635d(0x21f)));if(_0x58d3c[_0x1e635d(0x22c)]()){const _0x35f771=_0x58d3c[_0x1e635d(0x239)]()[_0x1e635d(0x23b)]();_0x35f771!==''&&(siteNameEl[_0x1e635d(0x248)]=_0x35f771,siteNameEl[_0x1e635d(0x22d)]['display']='block');}}catch(_0x5ce3c2){console[_0x1e635d(0x251)]('Site\x20adı\x20yüklenemedi',_0x5ce3c2);}}qrBtn[_0x3edad6(0x1fc)](_0x3edad6(0x249),()=>{const _0x492f68=_0x3edad6;setActive(qrBtn),qrModal[_0x492f68(0x22d)][_0x492f68(0x257)]=_0x492f68(0x22b);const _0x3cd6f3=document[_0x492f68(0x1f8)](_0x492f68(0x1f4));_0x3cd6f3[_0x492f68(0x23e)]='',qrReader=new Html5Qrcode(_0x492f68(0x1f4));const _0xa2a685=Math[_0x492f68(0x24f)](window[_0x492f68(0x221)]*0.8,0x12c);qrReader['start']({'facingMode':_0x492f68(0x220)},{'fps':0xa,'qrbox':_0xa2a685},async _0x22d604=>{const _0x4f17ff=_0x492f68;try{await qrReader['stop']();}catch(_0x5c5ffe){}qrReader=null,qrModal[_0x4f17ff(0x22d)]['display']='none',await loadSiteConfig(_0x22d604),document[_0x4f17ff(0x1f8)]('qrMessage')[_0x4f17ff(0x248)]=_0x4f17ff(0x235);},_0x46c2ef=>{const _0x5c6734=_0x492f68;console[_0x5c6734(0x223)](_0x5c6734(0x210),_0x46c2ef);})[_0x492f68(0x205)](_0x4f6386=>{const _0x2dab91=_0x492f68;alert('Kamera\x20açılamadı:\x20'+_0x4f6386),qrModal['style']['display']=_0x2dab91(0x243);});}),codeBtn[_0x3edad6(0x1fc)]('click',()=>{const _0x355338=_0x3edad6;setActive(codeBtn),codeModal[_0x355338(0x231)][_0x355338(0x213)](_0x355338(0x204)),codeInput[_0x355338(0x256)]='',codeInput['focus']();}),codeCancel[_0x3edad6(0x1fc)](_0x3edad6(0x249),()=>codeModal[_0x3edad6(0x231)]['add']('hidden')),codeConfirm[_0x3edad6(0x1fc)](_0x3edad6(0x249),async()=>{const _0xa7b3d9=_0x3edad6,_0x56d3d6=codeInput[_0xa7b3d9(0x256)]['trim']();if(!/^\d{4}$/[_0xa7b3d9(0x219)](_0x56d3d6)){alert('Lütfen\x204\x20haneli\x20sayı\x20girin!');return;}codeModal[_0xa7b3d9(0x231)][_0xa7b3d9(0x24c)]('hidden'),await loadSiteConfig(_0x56d3d6),document['getElementById'](_0xa7b3d9(0x1f0))[_0xa7b3d9(0x248)]=_0xa7b3d9(0x207);}),siteNameEl[_0x3edad6(0x1fc)](_0x3edad6(0x201),()=>{pressTimer=setTimeout(openDisconnectModal,0x320);}),siteNameEl[_0x3edad6(0x1fc)](_0x3edad6(0x202),()=>clearTimeout(pressTimer)),siteNameEl[_0x3edad6(0x1fc)](_0x3edad6(0x234),()=>clearTimeout(pressTimer)),siteNameEl[_0x3edad6(0x1fc)](_0x3edad6(0x1f6),()=>{pressTimer=setTimeout(openDisconnectModal,0x320);}),siteNameEl['addEventListener']('touchend',()=>clearTimeout(pressTimer));function disconnectProject(){const _0x3cee8e=_0x3edad6;localStorage[_0x3cee8e(0x1fd)]('siteID'),localStorage[_0x3cee8e(0x1fd)]('siteConfig'),sessionStorage[_0x3cee8e(0x1fd)](_0x3cee8e(0x215)),siteNameEl[_0x3cee8e(0x248)]='',siteNameEl[_0x3cee8e(0x22d)][_0x3cee8e(0x257)]=_0x3cee8e(0x243),showQRButtons(),document['getElementById'](_0x3cee8e(0x1f0))['textContent']=_0x3cee8e(0x1f7),msg[_0x3cee8e(0x248)]='';}function openDisconnectModal(){const _0x40ba23=_0x3edad6;modal[_0x40ba23(0x231)][_0x40ba23(0x213)](_0x40ba23(0x204));}function _0xf459(_0x1a393f,_0x4c5a21){_0x1a393f=_0x1a393f-0x1f0;const _0x2c557c=_0x2c55();let _0xf45908=_0x2c557c[_0x1a393f];return _0xf45908;}function closeDisconnectModal(){const _0x497141=_0x3edad6;modal[_0x497141(0x231)]['add'](_0x497141(0x204));}cancelBtn[_0x3edad6(0x236)]=closeDisconnectModal,confirmBtn[_0x3edad6(0x236)]=()=>{closeDisconnectModal(),disconnectProject();};function setActive(_0x238c3b){const _0x178134=_0x3edad6;[qrBtn,codeBtn][_0x178134(0x20c)](_0x60c728=>_0x60c728[_0x178134(0x231)]['remove']('active')),_0x238c3b[_0x178134(0x231)]['add']('active');}async function loadSiteConfig(_0x2238f8){const _0x47233e=_0x3edad6;try{let _0xdea2cf;if(/^\d{4}$/[_0x47233e(0x219)](_0x2238f8)){const _0x1622d0=await get(child(ref(merkezDB),_0x47233e(0x1f5)+_0x2238f8));if(!_0x1622d0[_0x47233e(0x22c)]())return msg['textContent']='Kısa\x20kod\x20geçersiz!',showQRButtons(),null;_0xdea2cf=_0x1622d0[_0x47233e(0x239)]();}else _0xdea2cf=_0x2238f8;const _0x2c341e=await get(child(ref(merkezDB),_0x47233e(0x240)+_0xdea2cf+_0x47233e(0x21a)));if(!_0x2c341e[_0x47233e(0x22c)]())return msg[_0x47233e(0x248)]=_0x47233e(0x244),showQRButtons(),null;const _0x13d796=_0x2c341e[_0x47233e(0x239)]();let _0x30a5c2=getApps()[_0x47233e(0x218)](_0x1c4062=>_0x1c4062[_0x47233e(0x233)]===_0x47233e(0x250)+_0xdea2cf);if(!_0x30a5c2)_0x30a5c2=initializeApp(_0x13d796,'siteApp-'+_0xdea2cf);const _0x26dd49=getDatabase(_0x30a5c2);return localStorage[_0x47233e(0x230)](_0x47233e(0x208),_0xdea2cf),localStorage[_0x47233e(0x230)]('siteConfig',JSON[_0x47233e(0x22e)](_0x13d796)),hideQRButtons(),await loadSiteName(_0x26dd49),msg[_0x47233e(0x248)]=_0x47233e(0x1f2),_0x26dd49;}catch(_0x247f82){console['error'](_0x247f82),msg[_0x47233e(0x248)]=_0x47233e(0x20b),showQRButtons();}}closeQRModal['addEventListener']('click',async()=>{const _0x1582c8=_0x3edad6;if(qrReader){try{await qrReader[_0x1582c8(0x23f)](),qrReader[_0x1582c8(0x20a)]();}catch(_0x4d8332){console[_0x1582c8(0x251)](_0x1582c8(0x1fe),_0x4d8332);}qrReader=null;}qrModal[_0x1582c8(0x22d)][_0x1582c8(0x257)]=_0x1582c8(0x243);});
+</script>
+
+<!-- 🔒 DISCONNECT MODAL -->
+<div id="disconnectModal" class="disconnect-modal hidden">
+  <div class="modal-box">
+    <p>Proje bağlantısından ayrılmak istiyor musunuz?</p>
+    <div class="modal-actions">
+      <button id="cancelDisconnect">İptal</button>
+      <button id="confirmDisconnect">Ayrıl</button>
+    </div>
+  </div>
+</div>
+
+<!-- PWA Yükleme Butonu -->
+<button id="installBtn" class="install-btn" style="position: fixed; top: 12px; left: 12px; font-size: 20px; display:none; z-index:500;">📲 Uygulamayı Yükle</button>
+
+<script>
+const _0x1207f1=_0x199d;(function(_0xa93af9,_0x23e5fb){const _0x5f30c5=_0x199d,_0x4eeee3=_0xa93af9();while(!![]){try{const _0x555838=parseInt(_0x5f30c5(0x199))/0x1*(parseInt(_0x5f30c5(0x1a3))/0x2)+parseInt(_0x5f30c5(0x1b3))/0x3*(-parseInt(_0x5f30c5(0x1b2))/0x4)+parseInt(_0x5f30c5(0x194))/0x5*(parseInt(_0x5f30c5(0x1ae))/0x6)+-parseInt(_0x5f30c5(0x1a6))/0x7+parseInt(_0x5f30c5(0x1af))/0x8*(parseInt(_0x5f30c5(0x19a))/0x9)+parseInt(_0x5f30c5(0x1a9))/0xa+parseInt(_0x5f30c5(0x1ad))/0xb;if(_0x555838===_0x23e5fb)break;else _0x4eeee3['push'](_0x4eeee3['shift']());}catch(_0xaa8422){_0x4eeee3['push'](_0x4eeee3['shift']());}}}(_0x28ab,0x84b0f));let deferredPrompt;function _0x28ab(){const _0x319477=['none','block','prompt','then','Service\x20Worker\x20kaydedildi.','catch','display','2MjLMzT','log','getElementById','6583682lhXeUz','error','/sw.js','2590820EhgNMd','beforeinstallprompt','userChoice','preventDefault','14340051IAjslh','336sVoIvf','404560EwHQDV','Service\x20Worker\x20hatası:','click','793252pHtBmj','3VWbCYu','addEventListener','2735YlAUCI','reload','register','serviceWorker','style','38417aEKOtr','9kxJmSg','location'];_0x28ab=function(){return _0x319477;};return _0x28ab();}function _0x199d(_0x2c4983,_0x55a38c){_0x2c4983=_0x2c4983-0x194;const _0x28abad=_0x28ab();let _0x199df5=_0x28abad[_0x2c4983];return _0x199df5;}const installBtn=document[_0x1207f1(0x1a5)]('installBtn');window['addEventListener'](_0x1207f1(0x1aa),_0x18f9c7=>{const _0x5a5f3b=_0x1207f1;_0x18f9c7[_0x5a5f3b(0x1ac)](),deferredPrompt=_0x18f9c7,installBtn[_0x5a5f3b(0x198)][_0x5a5f3b(0x1a2)]=_0x5a5f3b(0x19d);}),installBtn['addEventListener'](_0x1207f1(0x1b1),async()=>{const _0x154a04=_0x1207f1;installBtn['style'][_0x154a04(0x1a2)]=_0x154a04(0x19c);if(deferredPrompt){deferredPrompt[_0x154a04(0x19e)]();const {outcome:_0x5c0b5a}=await deferredPrompt[_0x154a04(0x1ab)];deferredPrompt=null;}});_0x1207f1(0x197)in navigator&&window[_0x1207f1(0x1b4)]('load',()=>{const _0x133019=_0x1207f1;navigator['serviceWorker'][_0x133019(0x196)](_0x133019(0x1a8))[_0x133019(0x19f)](()=>console[_0x133019(0x1a4)](_0x133019(0x1a0)))[_0x133019(0x1a1)](_0x341cb5=>console[_0x133019(0x1a7)](_0x133019(0x1b0),_0x341cb5));});'serviceWorker'in navigator&&navigator[_0x1207f1(0x197)][_0x1207f1(0x1b4)]('controllerchange',()=>{const _0x359366=_0x1207f1;console[_0x359366(0x1a4)]('Yeni\x20sürüm\x20algılandı,\x20uygulama\x20yenileniyor'),window[_0x359366(0x19b)][_0x359366(0x195)]();});
+</script>
+
+</body>
+</html>
+
+

@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CGA - Ek Çalışma Kayıtları</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root { --border: #000; }
+        body { font-family: 'Montserrat', sans-serif; background: #f4f7f6; padding: 10px; margin: 0; }
+        .container { max-width: 1400px; margin: auto; background: white; padding: 15px; border: 2px solid #000; }
+        .main-title { text-align: center; font-size: 15px; font-weight: bold; background: #eee; padding: 10px; border: 1px solid #000; margin-bottom: 15px; }
+        .input-panel { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; padding: 15px; border: 1px solid #000; background: #fafafa; margin-bottom: 20px; }
+        .f-box { display: flex; flex-direction: column; }
+        .f-box label { font-size: 10px; font-weight: bold; margin-bottom: 3px; }
+        input, select { padding: 8px; border: 1px solid #000; font-family: 'Montserrat'; font-size: 12px; }
+        .btn-add { background: #27ae60; color: white; border: none; font-weight: bold; cursor: pointer; height: 38px; align-self: flex-end; }
+        .table-wrap { width: 100%; overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; table-layout: fixed; min-width: 1100px; }
+        th, td { border: 1px solid var(--border); padding: 5px; text-align: center; font-size: 11px; height: 40px; }
+        th { background: #2c3e50; color: white; }
+        .btn-del { color: red; border: none; background: none; cursor: pointer; font-weight: bold; }
+        .btn-back { margin-top: 15px; padding: 10px 20px; background: #eee; border: 1px solid #000; font-weight: bold; cursor: pointer; }
+        .user-tag { font-size: 10px; color: #27ae60; font-weight: bold; margin-bottom: 5px; display: block; }
+        .no-data { padding: 20px; color: #888; font-style: italic; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <span id="activeUserTag" class="user-tag">Oturum kontrol ediliyor...</span>
+    <div class="main-title" id="pageTitle">AY İÇİNDE GÖREVE GELMEYEN VE EK ÇALIŞMA ÇİZELGESİ</div>
+
+    <div class="input-panel">
+        <div class="f-box">
+            <label>Göreve Gelmeyen / İşlem Tipi</label>
+            <select id="gelmeyenUid" onchange="toggleFormMode()">
+                <option value="">-- LÜTFEN SEÇİNİZ --</option>
+                <option value="YOK">-- DIŞ GÖREV --</option>
+            </select>
+        </div>
+
+        <div class="f-box" id="box-nereye" style="display: none;">
+            <label>Nereye Göreve Gidildi?</label>
+            <input type="text" id="nereyeGidildi" placeholder="Örn: Valilik, Stad, Konser">
+        </div>
+
+        <div class="f-box">
+            <label id="lbl-tarih">Tarih</label>
+            <input type="date" id="tarih">
+        </div>
+
+        <div class="f-box" id="box-neden">
+            <label>Gelmeme Nedeni</label>
+            <input type="text" id="neden" placeholder="Rapor, İzin vb.">
+        </div>
+
+        <div class="f-box">
+            <label id="lbl-mesaiYapan">Görevli / Mesai Yapan Personel</label>
+            <select id="mesaiYapanUid"></select>
+        </div>
+
+        <div class="f-box">
+            <label>Vardiya</label>
+            <select id="vardiya">
+                <option value="GÜNDÜZ">GÜNDÜZ</option>
+                <option value="GECE">GECE</option>
+            </select>
+        </div>
+        <button class="btn-add" id="saveBtn">KAYDI GÖNDER</button>
+    </div>
+
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 35px;">S.N</th>
+                    <th>ADI SOYADI</th>
+                    <th>GİDİLEN YER / TELEFON</th>
+                    <th style="width: 110px;">TARİH</th>
+                    <th>NEDEN / AÇIKLAMA</th>
+                    <th>NÖBETE GİDEN / GELEN</th>
+                    <th style="width: 100px;">VARDİYA</th>
+                    <th style="width: 50px;">SİL</th>
+                </tr>
+            </thead>
+            <tbody id="listBody"></tbody>
+        </table>
+    </div>
+
+    <button class="btn-back" onclick="location.href='cizelge.html'">⬅ GERİ DÖN</button>
+</div>
+
+<script type="module">
+    import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+    import { getDatabase, ref, get, push, remove } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-database.js";
+
+    const siteConfig = JSON.parse(localStorage.getItem("siteConfig"));
+    const siteID = localStorage.getItem("siteID");
+    const sessionUser = JSON.parse(sessionStorage.getItem('currentUser'));
+    const loggedInUserID = sessionUser ? sessionUser.username : localStorage.getItem("userID");
+
+    const app = getApps().find(a => a.name === `siteApp-${siteID}`) || initializeApp(siteConfig, `siteApp-${siteID}`);
+    const db = getDatabase(app);
+
+    // DİNAMİK TARİH: Her ay otomatik tertemiz sayfa açılmasını sağlar
+    const simdi = new Date();
+    const yilAy = `${simdi.getFullYear()}-${String(simdi.getMonth() + 1).padStart(2, '0')}`;
+    const ayAdi = simdi.toLocaleString('tr-TR', { month: 'long' }).toUpperCase();
+    document.getElementById('pageTitle').innerText = `${ayAdi} - GÖREVE GELMEYEN VE EK ÇALIŞMA ÇİZELGESİ`;
+
+    let users = {};
+    let isAmir = false;
+
+    window.toggleFormMode = function() {
+        const val = document.getElementById('gelmeyenUid').value;
+        const boxNereye = document.getElementById('box-nereye');
+        const boxNeden = document.getElementById('box-neden');
+        const lblTarih = document.getElementById('lbl-tarih');
+        const lblMesai = document.getElementById('lbl-mesaiYapan');
+
+        if(val === "YOK") {
+            boxNereye.style.display = "flex";
+            boxNeden.style.display = "none";
+            lblTarih.innerText = "Göreve Gidilen Tarih";
+            lblMesai.innerText = "Göreve Giden Personel";
+        } else {
+            boxNereye.style.display = "none";
+            boxNeden.style.display = "flex";
+            lblTarih.innerText = "Göreve Gelmediği Tarih";
+            lblMesai.innerText = "Yerine Nöbete Gelen";
+        }
+    }
+
+async function setup() {
+        if(!loggedInUserID) { alert("Oturum bulunamadı!"); return; }
+        
+        // Veritabanından kullanıcıları ve yetkili amiri çekiyoruz
+        const uSnap = await get(ref(db, 'users'));
+        const amirSnap = await get(ref(db, 'settings/cizelgeAmiri'));
+        
+        users = uSnap.val() || {};
+        const currentAmirID = amirSnap.val() || ""; // Gizli panelden atanan amir ID'si
+        
+        // YETKİ KONTROLÜ: Eğer giriş yapan kişi gizli panelden atanan amir ise isAmir true olur
+        isAmir = (loggedInUserID === currentAmirID); 
+        
+        const currentUserData = users[loggedInUserID] || {};
+        document.getElementById('activeUserTag').innerText = (isAmir ? "AMİR: " : "GÜVENLİK: ") + (currentUserData.name || loggedInUserID);
+
+        const gSelect = document.getElementById('gelmeyenUid');
+        const mSelect = document.getElementById('mesaiYapanUid');
+
+        Object.keys(users).forEach(uid => {
+            if(users[uid].type === 'security') {
+                const name = users[uid].name || uid;
+                gSelect.innerHTML += `<option value="${uid}">${name}</option>`;
+                mSelect.innerHTML += `<option value="${uid}">${name}</option>`;
+            }
+        });
+        mSelect.value = loggedInUserID;
+        toggleFormMode();
+        renderTable();
+    }
+
+    async function renderTable() {
+        try {
+            // Sadece içinde bulunulan ayın klasörünü çeker
+            const snap = await get(ref(db, `ekMesailer/${yilAy}`));
+            const allData = snap.val() || {};
+            const tbody = document.getElementById('listBody');
+            tbody.innerHTML = '';
+            
+            // YETKİ FİLTRESİ: Amir her şeyi görür, personel sadece kendi eklediğini
+            const keys = Object.keys(allData);
+            const filteredKeys = isAmir 
+                ? keys 
+                : keys.filter(key => allData[key].olusturanUid === loggedInUserID);
+
+            if (filteredKeys.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="no-data">${ayAdi} ayına ait henüz kayıt bulunmamaktadır.</td></tr>`;
+                return;
+            }
+
+            filteredKeys.forEach((key, index) => {
+                const item = allData[key];
+                const isDisGorev = item.gelmeyenUid === "YOK";
+                const tr = document.createElement('tr');
+
+                const name = isDisGorev ? "DIŞ GÖREV" : (users[item.gelmeyenUid]?.name || item.gelmeyenUid);
+                const info = isDisGorev ? `📍 ${item.nereyeGidildi || '-'}` : (users[item.gelmeyenUid]?.phone || "-");
+                const formattedDate = item.tarih ? item.tarih.split('-').reverse().join('.') : "-";
+                const neden = isDisGorev ? "DIŞ GÖREVLENDİRME" : (item.neden || "-");
+                const mesaiYapan = users[item.mesaiYapanUid]?.name || item.mesaiYapanUid;
+
+                tr.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td>${name}</td>
+                    <td>${info}</td>
+                    <td>${formattedDate}</td>
+                    <td>${neden}</td>
+                    <td><b>${mesaiYapan}</b></td>
+                    <td>${item.vardiya}</td>
+                    <td><button class="btn-del" onclick="deleteRec('${key}')">X</button></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        } catch (e) { console.error(e); }
+    }
+
+    document.getElementById('saveBtn').onclick = async () => {
+        const gelmeyen = document.getElementById('gelmeyenUid').value;
+        const tarih = document.getElementById('tarih').value;
+        const nereye = document.getElementById('nereyeGidildi').value.trim();
+        const neden = document.getElementById('neden').value.trim();
+
+        if(!gelmeyen) return alert("Lütfen bir personel veya işlem tipi seçiniz!");
+        if(!tarih) return alert("Lütfen tarih seçiniz!");
+        
+        const isDisGorev = gelmeyen === "YOK";
+        if(isDisGorev && !nereye) return alert("Nereye göreve gidildiğini yazınız!");
+        if(!isDisGorev && !neden) return alert("Gelmeme nedenini yazınız!");
+
+        const record = {
+            gelmeyenUid: gelmeyen,
+            nereyeGidildi: isDisGorev ? nereye.toUpperCase() : "",
+            tarih: tarih,
+            neden: isDisGorev ? "DIŞ GÖREV" : neden.toUpperCase(),
+            mesaiYapanUid: document.getElementById('mesaiYapanUid').value,
+            vardiya: document.getElementById('vardiya').value,
+            olusturanUid: loggedInUserID 
+        };
+
+        await push(ref(db, `ekMesailer/${yilAy}`), record);
+        document.getElementById('neden').value = "";
+        document.getElementById('nereyeGidildi').value = "";
+        renderTable();
+    };
+
+    window.deleteRec = async (key) => {
+        if(confirm("Bu kaydı silmek istediğinize emin misiniz?")) {
+            await remove(ref(db, `ekMesailer/${yilAy}/${key}`));
+            renderTable();
+        }
+    };
+
+    setup();
+</script>
+</body>
+</html>
