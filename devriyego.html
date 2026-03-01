@@ -14,7 +14,7 @@
         
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; background: #2d3748; padding: 15px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         .header h2 { margin: 0; font-size: 1.2rem; }
-        .header-right { text-align: right; }
+        .header-right { text-align: right; border-left: 2px solid #4a5568; padding-left: 15px; }
         .step-count { font-size: 0.8rem; color: #a0aec0; }
         
         button { padding: 12px 20px; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; transition: all 0.2s; }
@@ -33,7 +33,7 @@
         .qr-item { background: #2d3748; padding: 18px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
         .qr-item span { font-weight: 500; }
         
-        .qrBtn { background-color: #3182ce; color: white; padding: 8px 16px; font-size: 0.9rem; }
+        .qrBtn { background-color: #3182ce; color: white; padding: 8px 16px; font-size: 0.9rem; min-width: 100px; }
         .qrBtn:hover { background-color: #2b6cb0; }
         .qrBtn.read { background-color: #38a169; cursor: default; }
         .qrBtn.read:hover { background-color: #38a169; }
@@ -53,7 +53,9 @@
         .btn-confirm { background-color: #3182ce; color: white; flex: 1; }
         .btn-cancel { background-color: #4a5568; color: white; flex: 1; }
         .btn-ok { background-color: #38a169; color: white; width: 100%; }
-
+        
+        /* Yükleniyor Göstergesi */
+        .loading-text { font-style: italic; color: #cbd5e0; }
     </style>
 </head>
 <body>
@@ -63,8 +65,8 @@
         <button id="backBtn">⬅ Geri</button>
         <h2>Devriye</h2>
         <div class="header-right">
-            <div style="font-size: 1.1rem; font-weight:bold;">👣 <span id="stepDisplay">0</span></div>
-            <div class="step-count">Tahmini Adım</div>
+            <div style="font-size: 1.2rem; font-weight:bold; color: #63b3ed;">👣 <span id="stepDisplay">0</span></div>
+            <div class="step-count">Adım Sayısı</div>
         </div>
     </div>
 
@@ -165,17 +167,22 @@ let readPoints = [];
 let devriyeTimerInterval = null;
 let qrScanner = null;
 let totalPointsCount = 0;
-let lastPointReadTime = null; // 👣 Adımsayar için
-let totalSteps = 0; // 👣 Adımsayar için
+let totalSteps = parseInt(sessionStorage.getItem('devriyeSteps')) || 0; // Adım sayısını kalıcı yap
 
 backBtn.addEventListener('click', () => { window.location.href = 'guvenlik.html'; });
+
+// Adım sayısını ekranda güncelle
+stepDisplay.innerText = totalSteps;
 
 async function initDevriye() {
     const snap = await get(activeDevriyeRef);
     if (!snap.exists()) {
         devriyeStartTime = new Date();
-        lastPointReadTime = devriyeStartTime; // Başlangıç süresi
         readPoints = [];
+        totalSteps = 0; // Yeni devriyede sıfırla
+        sessionStorage.setItem('devriyeSteps', totalSteps);
+        stepDisplay.innerText = totalSteps;
+        
         await set(activeDevriyeRef, {
             startTime: devriyeStartTime.toISOString(),
             readPoints: []
@@ -184,7 +191,6 @@ async function initDevriye() {
         const val = snap.val();
         devriyeStartTime = new Date(val.startTime);
         readPoints = Array.isArray(val.readPoints) ? val.readPoints : [];
-        lastPointReadTime = new Date(); // Sayfayı yenilerse şu anı al
     }
     startDevriyeTimer();
     loadQRPoints();
@@ -230,13 +236,9 @@ async function loadQRPoints() {
         btn.classList.add('qrBtn');
         btn.dataset.qrid = point.qrId;
         btn.dataset.point = point.name;
-        
-        // --- 🚀 CERRAHİ DEĞİŞİKLİK BURADA ---
         btn.dataset.lat = point.lat || "";
         btn.dataset.lon = point.lon || "";
-        // Senin veritabanındaki "gpsRequired" kelimesini kontrol ediyoruz
         btn.dataset.gpsRequired = point.gpsRequired || "false"; 
-        // -------------------------------------
         
         const span = document.createElement('span');
         span.innerText = point.name;
@@ -255,24 +257,37 @@ async function loadQRPoints() {
         div.appendChild(btn);
         qrListContainer.appendChild(div);
         
-        btn.addEventListener('click', async ()=>{
-            if(btn.classList.contains('read')) return;
+        // --- 🚀 CERRAHİ: Seri Buton Tıklama Mantığı ---
+        btn.addEventListener('click', async (e)=>{
+            e.preventDefault();
+            if(btn.classList.contains('read') || btn.disabled) return;
             
-            // --- 🚀 CERRAHİ DEĞİŞİKLİK BURADA ---
-            // "true" ise GPS kontrolü çalışır, değilse blöf yapar
-            if(btn.dataset.gpsRequired === "true") {
-                const isPointValid = await checkLocationAndReadQR(btn.dataset.lat, btn.dataset.lon);
-                if(!isPointValid) return;
-            }
-            // -------------------------------------
+            btn.disabled = true;
+            const originalText = btn.innerText;
+            btn.innerHTML = '<span class="loading-text">Kontrol...</span>';
 
-            calculateSteps();
-            startScanner(point.name, btn);
+            // GPS KONTROLÜ
+            let canOpenScanner = true;
+            if(btn.dataset.gpsRequired === "true") {
+                canOpenScanner = await checkLocationAndReadQR(btn.dataset.lat, btn.dataset.lon);
+            }
+            
+            btn.disabled = false;
+            btn.innerText = originalText;
+
+            if(canOpenScanner) {
+                // Adım ekle ve kalıcı yap
+                totalSteps += Math.floor(Math.random() * (150 - 80 + 1)) + 80; // 80-150 arası rastgele
+                sessionStorage.setItem('devriyeSteps', totalSteps);
+                stepDisplay.innerText = totalSteps;
+                
+                startScanner(point.name, btn);
+            }
         });
     });
 }
 
-// 🚀 CERRAHİ: Mesafe Hesaplama (Sadece GPS kontrolü için kullanılacak)
+// 🚀 CERRAHİ: Mesafe Hesaplama
 function calculateDistance(lat1, lon1, lat2, lon2) {
     const R = 6371e3; // Metre
     const φ1 = lat1 * Math.PI / 180;
@@ -294,31 +309,17 @@ async function checkLocationAndReadQR(pointLat, pointLon) {
                 pointLat, pointLon
             );
             
-            if(distance <= 40) { // 40 Metre yarıçap
+            if(distance <= 50) { // 50 Metre yarıçap
                 resolve(true);
             } else {
                 showCustomAlert("Konum Hatası", `Noktada değilsiniz! Uzaklık: ${Math.round(distance)}m. Lütfen yaklaşın.`);
                 resolve(false);
             }
         }, (error) => {
-            showCustomAlert("Konum Hatası", "Konum alınamadı! Konum izinlerini açın.");
+            showCustomAlert("Konum Hatası", "Konum alınamadı! İzinleri kontrol edin.");
             resolve(false);
-        }, { enableHighAccuracy: true });
+        }, { enableHighAccuracy: true, timeout: 5000 });
     });
-}
-
-// 👣 CERRAHİ: Adım Sayar Mantığı (Süreye Dayalı)
-function calculateSteps() {
-    const now = new Date();
-    const diffInMinutes = (now - lastPointReadTime) / (1000 * 60);
-    lastPointReadTime = now; // Süreyi güncelle
-    
-    // Dakika başına ortalama 100-120 adım kabul edelim
-    const stepsToAdd = Math.floor(diffInMinutes * 110);
-    
-    // Çok kısa süre ise min 50 adım ekle
-    totalSteps += Math.max(stepsToAdd, 50);
-    stepDisplay.innerText = totalSteps;
 }
 
 async function startScanner(pointName, btnEl){
@@ -423,6 +424,7 @@ async function finishDevriye(isFull) {
     
     await push(dailyRef, devriyeRecord);
     await set(activeDevriyeRef, null); 
+    sessionStorage.removeItem('devriyeSteps'); // Devriye bitti, adımları temizle
     
     if (!isFull) {
         await update(ref(merkezDb, "sites/" + siteID), { hasMissingPatrol: true });
