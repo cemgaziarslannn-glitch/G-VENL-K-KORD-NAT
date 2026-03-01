@@ -260,32 +260,28 @@ async function loadQRPoints() {
         div.appendChild(btn);
         qrListContainer.appendChild(div);
         
-        // --- 🚀 CERRAHİ: Beklemeli GPS Kontrolü ---
+        // --- 🚀 CERRAHİ: SADECE KONTROL MANTIĞI ---
         btn.addEventListener('click', async (e)=>{
             e.preventDefault();
             if(btn.classList.contains('read') || btn.disabled) return;
             
             btn.disabled = true;
             btn.classList.add('loading');
-            const originalText = btn.innerText;
-            // 💡 MESAJ BURADA
             btn.innerHTML = '<span class="loading-animation">Konum Kontrol...</span>';
 
             let canOpenScanner = true;
+            
+            // Eğer GPS gerekli ise kontrol et
             if(btn.dataset.gpsRequired === "true") {
                 canOpenScanner = await checkLocationAndReadQR(btn.dataset.lat, btn.dataset.lon);
             }
             
             btn.disabled = false;
             btn.classList.remove('loading');
-            btn.innerText = originalText;
+            btn.innerText = "QR Okut";
 
             if(canOpenScanner) {
-                // Rastgele adım sayısı ve session'a kaydetme
-                totalSteps += Math.floor(Math.random() * (150 - 80 + 1)) + 80;
-                sessionStorage.setItem('devriyeSteps', totalSteps);
-                stepDisplay.innerText = totalSteps;
-                
+                // Konum doğruysa veya GPS gerekmiyorsa kamerayı aç
                 startScanner(point.name, btn);
             }
         });
@@ -302,7 +298,7 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
-// 🚀 CERRAHİ: 30 Metre Tolerans ve Uzun Bekleme (Timeout)
+// 🚀 CERRAHİ: Sadece Mesafe Doğrulama
 async function checkLocationAndReadQR(pointLat, pointLon) {
     return new Promise((resolve) => {
         if (!pointLat || pointLat === "" || !pointLon || pointLon === "") {
@@ -324,10 +320,9 @@ async function checkLocationAndReadQR(pointLat, pointLon) {
                 resolve(false);
             }
         }, (error) => {
-            // 🔥 Hata durumu: Konum alınamadıysa tekrar deneyin mesajı
-            showCustomAlert("Konum Hatası", "Konum tam alınamadı, lütfen noktaya biraz daha yaklaşın ve tekrar QR okutun.");
+            showCustomAlert("Konum Hatası", "Konum alınamadı, lütfen açık alanda olduğunuzdan emin olun.");
             resolve(false);
-        }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }); // timeout 15sn
+        }, { enableHighAccuracy: true, timeout: 10000 }); // 10 saniye bekle
     });
 }
 
@@ -341,12 +336,18 @@ async function startScanner(pointName, btnEl){
         { fps:10, qrbox:250 },
         async qrCodeMessage => {
             const qrId = qrCodeMessage.trim();
+            // --- 🚀 CERRAHİ: QR KOD EŞLEŞTİRME ---
             if(qrId === btnEl.dataset.qrid){
                 btnEl.classList.add('read');
                 btnEl.innerText = "Okundu";
                 btnEl.parentElement.querySelector('span').style.textDecoration = "line-through";
                 btnEl.parentElement.querySelector('span').style.color = "#a0aec0";
                 
+                // Rastgele adım sayısı ekle
+                totalSteps += Math.floor(Math.random() * (150 - 80 + 1)) + 80;
+                sessionStorage.setItem('devriyeSteps', totalSteps);
+                stepDisplay.innerText = totalSteps;
+
                 const now = new Date();
                 const timeStr = now.toLocaleTimeString('tr-TR', {hour: '2-digit', minute:'2-digit'});
                 
