@@ -1,451 +1,223 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Devriye Noktaları</title>
-    <script src="https://www.gstatic.com/firebasejs/12.1.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/12.1.0/firebase-database-compat.js"></script>
-    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
-    
-    <style>
-        body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #1a202c; color: white; margin: 0; padding: 10px; display: flex; justify-content: center; }
-        .container { max-width: 600px; width: 100%; }
-        
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; background: #2d3748; padding: 15px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        .header h2 { margin: 0; font-size: 1.2rem; }
-        .header-right { text-align: right; border-left: 2px solid #4a5568; padding-left: 15px; }
-        .step-count { font-size: 0.8rem; color: #a0aec0; }
-        
-        button { padding: 12px 20px; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; transition: all 0.2s; }
-        
-        #backBtn { background-color: #4a5568; color: white; }
-        #backBtn:hover { background-color: #718096; }
-        
-        #devriyeEndBtn { background-color: #e53e3e; color: white; width: 100%; padding: 18px; font-size: 16px; margin-top: 25px; box-shadow: 0 4px 6px rgba(229, 62, 62, 0.3); }
-        #devriyeEndBtn:disabled { background-color: #a0aec0; cursor: not-allowed; box-shadow: none; }
-        #devriyeEndBtn:hover:not(:disabled) { background-color: #c53030; }
-        
-        .status-box { background-color: #2d3748; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-left: 4px solid #3182ce; }
-        #devriyeStatus { font-size: 1.1rem; font-weight: bold; }
-        
-        .qr-list { display: flex; flex-direction: column; gap: 12px; }
-        .qr-item { background: #2d3748; padding: 18px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .qr-item span { font-weight: 500; }
-        
-        .qrBtn { background-color: #3182ce; color: white; padding: 8px 16px; font-size: 0.9rem; min-width: 100px; }
-        .qrBtn:hover { background-color: #2b6cb0; }
-        .qrBtn.read { background-color: #38a169; cursor: default; }
-        .qrBtn.read:hover { background-color: #38a169; }
-        .qrBtn.loading { background-color: #718096; cursor: wait; }
-        
-        /* QR Modal */
-        #qrScannerModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 1000; flex-direction: column; justify-content: center; align-items: center; }
-        #qr-reader { width: 90%; max-width: 400px; border-radius: 12px; overflow: hidden; }
-        #closeScanner { background: #4a5568; color: white; margin-top: 20px; width: 90%; max-width: 400px; }
-        #flashToggle { background: #ecc94b; color: #1a202c; margin-top: 10px; width: 90%; max-width: 400px; }
-        
-        /* ÖZEL UYARI MODALI */
-        #customAlertModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 2000; justify-content: center; align-items: center; padding: 20px; }
-        .alert-content { background: #2d3748; padding: 25px; border-radius: 15px; text-align: center; max-width: 400px; width: 100%; box-shadow: 0 10px 15px rgba(0,0,0,0.3); border: 1px solid #4a5568; }
-        .alert-content h3 { margin-top: 0; color: #cbd5e0; }
-        .alert-content p { color: #e2e8f0; margin-bottom: 25px; }
-        .alert-btns { display: flex; gap: 10px; justify-content: center; }
-        .btn-confirm { background-color: #3182ce; color: white; flex: 1; }
-        .btn-cancel { background-color: #4a5568; color: white; flex: 1; }
-        .btn-ok { background-color: #38a169; color: white; width: 100%; }
-        
-        /* Yükleniyor Mesajı */
-        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
-        .loading-animation { animation: blink 1.5s infinite; color: #ecc94b; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Devriye Noktaları</title>
+
+<script src="https://www.gstatic.com/firebasejs/12.1.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.1.0/firebase-database-compat.js"></script>
+<script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+
+<style>
+body { font-family: 'Segoe UI'; background:#1a202c; color:white; margin:0; padding:10px; display:flex; justify-content:center;}
+.container { max-width:600px; width:100%; }
+.header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; background:#2d3748; padding:15px; border-radius:12px;}
+.status-box { background:#2d3748; padding:20px; border-radius:12px; text-align:center; margin-bottom:20px;}
+.qr-item { background:#2d3748; padding:18px; border-radius:12px; display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;}
+button { padding:10px 15px; border:none; border-radius:8px; cursor:pointer; font-weight:bold;}
+.qrBtn { background:#3182ce; color:white;}
+.qrBtn.read { background:#38a169;}
+#devriyeEndBtn { background:#e53e3e; width:100%; margin-top:20px;}
+#qrScannerModal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:black; z-index:1000; justify-content:center; align-items:center; flex-direction:column;}
+#qr-reader { width:90%; max-width:400px;}
+#customAlertModal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:2000; justify-content:center; align-items:center;}
+.alert-box { background:#2d3748; padding:20px; border-radius:12px; text-align:center; width:90%; max-width:400px;}
+</style>
 </head>
 <body>
 
 <div class="container">
-    <div class="header">
-        <button id="backBtn">⬅ Geri</button>
-        <h2>Devriye</h2>
-        <div class="header-right">
-            <div style="font-size: 1.2rem; font-weight:bold; color: #63b3ed;">👣 <span id="stepDisplay">0</span></div>
-            <div class="step-count">Adım Sayısı</div>
-        </div>
-    </div>
+<div class="header">
+<button onclick="window.location.href='guvenlik.html'">⬅ Geri</button>
+<h2>Devriye</h2>
+</div>
 
-    <div class="status-box">
-        <div id="devriyeStatus">Hazırlanıyor...</div>
-    </div>
+<div class="status-box">
+<div id="devriyeStatus">Hazırlanıyor...</div>
+</div>
 
-    <div id="qrListContainer" class="qr-list">
-        </div>
-
-    <button id="devriyeEndBtn">Devriyeyi Bitir</button>
+<div id="qrListContainer"></div>
+<button id="devriyeEndBtn">Devriyeyi Bitir</button>
 </div>
 
 <div id="qrScannerModal">
-    <div id="qr-reader"></div>
-    <button id="flashToggle">🔦 Flaş Aç</button>
-    <button id="closeScanner">Kapat</button>
+<div id="qr-reader"></div>
+<button onclick="closeScanner()">Kapat</button>
 </div>
 
 <div id="customAlertModal">
-    <div class="alert-content">
-        <h3 id="alertTitle">Uyarı</h3>
-        <p id="alertMessage">Mesaj</p>
-        <div class="alert-btns" id="alertActionBtns">
-            </div>
-    </div>
+<div class="alert-box">
+<h3 id="alertTitle"></h3>
+<p id="alertMessage"></p>
+<button onclick="closeAlert()">Tamam</button>
+</div>
 </div>
 
 <script type="module">
-import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
-import { getDatabase, ref, onValue, set, update, get, push } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-database.js";
 
-// --- ÖZEL UYARI FONKSİYONLARI ---
-function showCustomAlert(title, message, isConfirm = false, onConfirm = null) {
-    const modal = document.getElementById('customAlertModal');
-    const titleEl = document.getElementById('alertTitle');
-    const msgEl = document.getElementById('alertMessage');
-    const btnsEl = document.getElementById('alertActionBtns');
-    
-    titleEl.innerText = title;
-    msgEl.innerText = message;
-    btnsEl.innerHTML = '';
-    
-    if (isConfirm) {
-        const confirmBtn = document.createElement('button');
-        confirmBtn.innerText = 'Evet';
-        confirmBtn.className = 'btn-confirm';
-        confirmBtn.onclick = () => { modal.style.display = 'none'; if(onConfirm) onConfirm(); };
-        
-        const cancelBtn = document.createElement('button');
-        cancelBtn.innerText = 'İptal';
-        cancelBtn.className = 'btn-cancel';
-        cancelBtn.onclick = () => { modal.style.display = 'none'; };
-        
-        btnsEl.appendChild(cancelBtn);
-        btnsEl.appendChild(confirmBtn);
-    } else {
-        const okBtn = document.createElement('button');
-        okBtn.innerText = 'Tamam';
-        okBtn.className = 'btn-ok';
-        okBtn.onclick = () => { modal.style.display = 'none'; };
-        btnsEl.appendChild(okBtn);
-    }
-    
-    modal.style.display = 'flex';
+import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+import { getDatabase, ref, get, set, update, push } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-database.js";
+
+function showAlert(title,msg){
+document.getElementById("alertTitle").innerText=title;
+document.getElementById("alertMessage").innerText=msg;
+document.getElementById("customAlertModal").style.display="flex";
 }
-// ---------------------------------
+window.closeAlert=()=>document.getElementById("customAlertModal").style.display="none";
 
 const siteID = localStorage.getItem("siteID");
-const siteConfigStr = localStorage.getItem("siteConfig");
-
-if (!siteID || !siteConfigStr) {
-    showCustomAlert("Hata", "Site bağlantısı yok.");
-    setTimeout(() => { window.location.href = "index.html"; }, 2000);
-}
-
-const siteConfig = JSON.parse(siteConfigStr);
-let app = getApps().find(a => a.name === `siteApp-${siteID}`) || initializeApp(siteConfig, `siteApp-${siteID}`);
+const siteConfig = JSON.parse(localStorage.getItem("siteConfig"));
+const app = getApps().find(a=>a.name===`siteApp-${siteID}`) || initializeApp(siteConfig,`siteApp-${siteID}`);
 const db = getDatabase(app);
 
-const merkezConfig = { databaseURL: "https://kolartguvenlik-e002d-default-rtdb.firebaseio.com" };
-const merkezApp = getApps().find(a => a.name === "merkezApp") || initializeApp(merkezConfig, "merkezApp");
-const merkezDb = getDatabase(merkezApp);
-
-const currentUser = JSON.parse(sessionStorage.getItem('currentUser'));
+const currentUser = JSON.parse(sessionStorage.getItem("currentUser"));
 const activeDevriyeRef = ref(db,'activeDevriye/'+(currentUser.username || currentUser.name));
 const nobetRecordsRef = ref(db,'nobetRecords');
 
-const devriyeStatus = document.getElementById("devriyeStatus");
-const devriyeEndBtn = document.getElementById("devriyeEndBtn");
-const qrListContainer = document.getElementById('qrListContainer');
-const backBtn = document.getElementById("backBtn");
-const qrModal = document.getElementById('qrScannerModal');
-const stepDisplay = document.getElementById('stepDisplay');
+let devriyeStartTime;
+let readPoints=[];
+let qrScanner;
+let totalPointsCount=0;
 
-let devriyeStartTime = null;
-let readPoints = [];
-let devriyeTimerInterval = null;
-let qrScanner = null;
-let totalPointsCount = 0;
-// Kalıcı adım sayısını sessionStorage'dan al
-let totalSteps = parseInt(sessionStorage.getItem('devriyeSteps')) || 0;
-
-backBtn.addEventListener('click', () => { window.location.href = 'guvenlik.html'; });
-
-// Ekrandaki adım sayısını güncelle
-stepDisplay.innerText = totalSteps;
-
-async function initDevriye() {
-    const snap = await get(activeDevriyeRef);
-    if (!snap.exists()) {
-        devriyeStartTime = new Date();
-        readPoints = [];
-        totalSteps = 0; // Yeni devriyede sıfırla
-        sessionStorage.setItem('devriyeSteps', totalSteps);
-        stepDisplay.innerText = totalSteps;
-        
-        await set(activeDevriyeRef, {
-            startTime: devriyeStartTime.toISOString(),
-            readPoints: []
-        });
-    } else {
-        const val = snap.val();
-        devriyeStartTime = new Date(val.startTime);
-        readPoints = Array.isArray(val.readPoints) ? val.readPoints : [];
-    }
-    startDevriyeTimer();
-    loadQRPoints();
+function getDistanceInMeters(lat1, lon1, lat2, lon2) {
+const R = 6371000;
+const dLat = (lat2-lat1)*Math.PI/180;
+const dLon = (lon2-lon1)*Math.PI/180;
+const a=Math.sin(dLat/2)*Math.sin(dLat/2)+
+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*
+Math.sin(dLon/2)*Math.sin(dLon/2);
+const c=2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+return R*c;
 }
 
-function startDevriyeTimer(){
-    if(devriyeTimerInterval) clearInterval(devriyeTimerInterval);
-    devriyeTimerInterval = setInterval(()=>{
-        const now = new Date();
-        const diff = Math.floor((now - devriyeStartTime)/1000);
-        const h = String(Math.floor(diff/3600)).padStart(2,'0');
-        const m = String(Math.floor((diff%3600)/60)).padStart(2,'0');
-        const s = String(diff%60).padStart(2,'0');
-        devriyeStatus.innerHTML = `🟢 Devriye Aktif<br><span style="font-size:1.5rem; color:#63b3ed;">⏱️ ${h}:${m}:${s}</span>`;
-    },1000);
+function gpsKontrol(noktaLat,noktaLon,maxMesafe=30){
+return new Promise((resolve,reject)=>{
+navigator.geolocation.getCurrentPosition(pos=>{
+const mesafe=getDistanceInMeters(
+pos.coords.latitude,
+pos.coords.longitude,
+noktaLat,
+noktaLon
+);
+if(mesafe<=maxMesafe){
+resolve(mesafe);
+}else{
+reject("Noktaya "+Math.round(mesafe)+" metre uzaktasınız");
+}
+},{enableHighAccuracy:true});
+});
 }
 
-async function loadQRPoints() {
-    const nobetSnapshot = await get(nobetRecordsRef);
-    let startPoint = null;
-    if(nobetSnapshot.exists()){
-        const records = nobetSnapshot.val();
-        for(const rec of Object.values(records)){
-            if(rec.startBy === (currentUser.name || currentUser.username) && rec.status==='started'){
-                startPoint = rec.startPoint;
-                break;
-            }
-        }
-    }
-
-    let pointsRef = startPoint ? ref(db, `${startPoint}qrcodes`) : ref(db,'qrCodes');
-    const snapshot = await get(pointsRef);
-    const pointsData = snapshot.exists() ? snapshot.val() : {};
-    
-    qrListContainer.innerHTML = '';
-    totalPointsCount = Object.keys(pointsData).length;
-
-    Object.values(pointsData).forEach(point=>{
-        const div = document.createElement('div');
-        div.classList.add('qr-item');
-        
-        const btn = document.createElement('button');
-        btn.classList.add('qrBtn');
-        btn.dataset.qrid = point.qrId;
-        btn.dataset.point = point.name;
-        btn.dataset.lat = point.lat || "";
-        btn.dataset.lon = point.lon || "";
-        btn.dataset.gpsRequired = point.gpsRequired || "false"; 
-        
-        const span = document.createElement('span');
-        span.innerText = point.name;
-        
-        const isRead = readPoints.some(p => p.name === point.name);
-        if(isRead){
-            btn.classList.add('read');
-            btn.innerText = "Okundu";
-            span.style.textDecoration = "line-through";
-            span.style.color = "#a0aec0";
-        } else {
-            btn.innerText = "QR Okut";
-        }
-        
-        div.appendChild(span);
-        div.appendChild(btn);
-        qrListContainer.appendChild(div);
-        
-        // --- 🚀 CERRAHİ: SADECE KONTROL MANTIĞI ---
-        btn.addEventListener('click', async (e)=>{
-            e.preventDefault();
-            if(btn.classList.contains('read') || btn.disabled) return;
-            
-            btn.disabled = true;
-            btn.classList.add('loading');
-            btn.innerHTML = '<span class="loading-animation">Konum Kontrol...</span>';
-
-            let canOpenScanner = true;
-            
-            // Eğer GPS gerekli ise kontrol et
-            if(btn.dataset.gpsRequired === "true") {
-                canOpenScanner = await checkLocationAndReadQR(btn.dataset.lat, btn.dataset.lon);
-            }
-            
-            btn.disabled = false;
-            btn.classList.remove('loading');
-            btn.innerText = "QR Okut";
-
-            if(canOpenScanner) {
-                // Konum doğruysa veya GPS gerekmiyorsa kamerayı aç
-                startScanner(point.name, btn);
-            }
-        });
-    });
+async function initDevriye(){
+const snap=await get(activeDevriyeRef);
+if(!snap.exists()){
+devriyeStartTime=new Date();
+await set(activeDevriyeRef,{startTime:devriyeStartTime.toISOString(),readPoints:[]});
+}else{
+devriyeStartTime=new Date(snap.val().startTime);
+readPoints=snap.val().readPoints||[];
+}
+loadQRPoints();
+startTimer();
 }
 
-function calculateDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371e3; // Metre
-    const φ1 = lat1 * Math.PI / 180;
-    const φ2 = lat2 * Math.PI / 180;
-    const Δφ = (lat2 - lat1) * Math.PI / 180;
-    const Δλ = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2) * Math.sin(Δλ/2);
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+function startTimer(){
+setInterval(()=>{
+const diff=Math.floor((new Date()-devriyeStartTime)/1000);
+const h=String(Math.floor(diff/3600)).padStart(2,'0');
+const m=String(Math.floor((diff%3600)/60)).padStart(2,'0');
+const s=String(diff%60).padStart(2,'0');
+document.getElementById("devriyeStatus").innerHTML="🟢 Aktif<br>"+h+":"+m+":"+s;
+},1000);
 }
 
-// 🚀 CERRAHİ: Sadece Mesafe Doğrulama
-async function checkLocationAndReadQR(pointLat, pointLon) {
-    return new Promise((resolve) => {
-        if (!pointLat || pointLat === "" || !pointLon || pointLon === "") {
-            resolve(true); // Koordinat yoksa GPS'i atla
-            return;
-        }
+async function loadQRPoints(){
+const snapshot=await get(ref(db,"ATAKULEqrcodes"));
+const data=snapshot.val()||{};
+document.getElementById("qrListContainer").innerHTML="";
+totalPointsCount=Object.keys(data).length;
 
-        navigator.geolocation.getCurrentPosition((position) => {
-            const distance = calculateDistance(
-                position.coords.latitude, position.coords.longitude,
-                pointLat, pointLon
-            );
-            
-            // 🔥 TOLERANS 30 METRE
-            if (distance <= 30) {
-                resolve(true);
-            } else {
-                showCustomAlert("Konum Hatası", `Noktadan çok uzaksınız! (Mesafe: ${Math.round(distance)}m).`);
-                resolve(false);
-            }
-        }, (error) => {
-            showCustomAlert("Konum Hatası", "Konum alınamadı, lütfen açık alanda olduğunuzdan emin olun.");
-            resolve(false);
-        }, { enableHighAccuracy: true, timeout: 10000 }); // 10 saniye bekle
-    });
+Object.values(data).forEach(point=>{
+const div=document.createElement("div");
+div.className="qr-item";
+const span=document.createElement("span");
+span.innerText=point.name;
+const btn=document.createElement("button");
+btn.className="qrBtn";
+btn.innerText="QR Okut";
+btn.onclick=()=>startScanner(point,btn,span);
+div.appendChild(span);
+div.appendChild(btn);
+document.getElementById("qrListContainer").appendChild(div);
+});
 }
 
-async function startScanner(pointName, btnEl){
-    qrModal.style.display='flex';
-    if(qrScanner) qrScanner.clear();
-    qrScanner = new Html5Qrcode('qr-reader');
-    
-    qrScanner.start(
-        { facingMode:"environment" },
-        { fps:10, qrbox:250 },
-        async qrCodeMessage => {
-            const qrId = qrCodeMessage.trim();
-            // --- 🚀 CERRAHİ: QR KOD EŞLEŞTİRME ---
-            if(qrId === btnEl.dataset.qrid){
-                btnEl.classList.add('read');
-                btnEl.innerText = "Okundu";
-                btnEl.parentElement.querySelector('span').style.textDecoration = "line-through";
-                btnEl.parentElement.querySelector('span').style.color = "#a0aec0";
-                
-                // Rastgele adım sayısı ekle
-                totalSteps += Math.floor(Math.random() * (150 - 80 + 1)) + 80;
-                sessionStorage.setItem('devriyeSteps', totalSteps);
-                stepDisplay.innerText = totalSteps;
+async function startScanner(point,btn,span){
+document.getElementById("qrScannerModal").style.display="flex";
+qrScanner=new Html5Qrcode("qr-reader");
+qrScanner.start({facingMode:"environment"},{fps:10,qrbox:250},
+async msg=>{
+if(msg.trim()===point.qrId){
 
-                const now = new Date();
-                const timeStr = now.toLocaleTimeString('tr-TR', {hour: '2-digit', minute:'2-digit'});
-                
-                readPoints.push({ name: pointName, time: timeStr });
-                
-                await update(activeDevriyeRef, { readPoints: readPoints });
-                
-                qrScanner.stop();
-                qrModal.style.display='none';
-            } else {
-                showCustomAlert("Hata", "❌ Hatalı QR kod! Bu noktayla eşleşmiyor.");
-            }
-        },
-        err=>{ /* console.log(err) */ }
-    ).catch(err=>{ showCustomAlert("Kamera Hatası", "Kamera açılamadı: "+err); });
+try{
+let mesafe=0;
+if(point.gpsRequired){
+showAlert("GPS Kontrol","Konum doğrulanıyor...");
+mesafe=await gpsKontrol(point.lat,point.lon,30);
 }
 
-document.getElementById('closeScanner').addEventListener('click', ()=>{
-    if(qrScanner) qrScanner.stop();
-    qrModal.style.display='none';
+btn.classList.add("read");
+btn.innerText="Okundu";
+span.style.textDecoration="line-through";
+
+readPoints.push({
+name:point.name,
+time:new Date().toLocaleTimeString("tr-TR"),
+gpsRequired:point.gpsRequired||false,
+gpsDistance:mesafe||0
 });
 
-let flashOn = false;
-document.getElementById('flashToggle').addEventListener('click', async () => {
-    if(!qrScanner) return;
-    try{
-        flashOn = !flashOn;
-        await qrScanner.applyVideoConstraints({ advanced: [{ torch: flashOn }] });
-        document.getElementById('flashToggle').innerText = flashOn ? '🔦 Flaş Kapat' : '🔦 Flaş Aç';
-    }catch(e){ showCustomAlert("Bilgi", "Bu cihaz flaşı desteklemiyor"); }
-});
+await update(activeDevriyeRef,{readPoints:readPoints});
+qrScanner.stop();
+closeScanner();
+showAlert("Başarılı","Nokta doğrulandı ✅");
 
-devriyeEndBtn.addEventListener('click', async () => {
-    const readCount = readPoints.length;
-    
-    if (readCount < totalPointsCount) {
-        showCustomAlert(
-            "Emin misiniz?", 
-            `Devriyeyi bitirmek istiyorsunuz. Fakat ${totalPointsCount - readCount} nokta eksik!`, 
-            true, 
-            () => { finishDevriye(false); }
-        );
-        return;
-    }
-    
-    finishDevriye(true);
-});
-
-async function finishDevriye(isFull) {
-    devriyeEndBtn.disabled = true;
-    devriyeEndBtn.innerText = "Kaydediliyor...";
-
-    const devriyeEndTime = new Date();
-    
-    let blockName = "Bilinmiyor";
-    const nobetSnapshot = await get(nobetRecordsRef);
-    if (nobetSnapshot.exists()) {
-        const records = nobetSnapshot.val();
-        for (const key in records) {
-            const rec = records[key];
-            if (rec.startBy === (currentUser.name || currentUser.username) && rec.status === 'started') {
-                blockName = rec.startPoint || "Bilinmiyor";
-                break;
-            }
-        }
-    }
-
-    const devriyeRecord = {
-        user: currentUser.username || currentUser.name,
-        name: currentUser.name || currentUser.username,
-        block: blockName,
-        start: devriyeStartTime.toLocaleTimeString('tr-TR'),
-        end: devriyeEndTime.toLocaleTimeString('tr-TR'),
-        status: isFull ? "Tam devriye" : "Eksik devriye",
-        points: readPoints,
-        timestamp: Date.now(),
-        displayDate: devriyeStartTime.toLocaleDateString('tr-TR'),
-        totalSteps: totalSteps // Adım sayısını da kayda ekle
-    };
-
-    const userKey = currentUser.username || currentUser.name;
-    const dateKey = devriyeStartTime.toISOString().split('T')[0];
-    const dailyRef = ref(db, `devriyeHistory/${dateKey}/${userKey}`);
-    
-    await push(dailyRef, devriyeRecord);
-    await set(activeDevriyeRef, null); 
-    sessionStorage.removeItem('devriyeSteps'); // Devriye bitti, adımları temizle
-    
-    if (!isFull) {
-        await update(ref(merkezDb, "sites/" + siteID), { hasMissingPatrol: true });
-    }
-    
-    showCustomAlert("Başarılı", "✅ Devriye başarıyla kaydedildi.");
-    setTimeout(() => { window.location.href = 'guvenlik.html'; }, 1500);
+}catch(e){
+showAlert("GPS Hatası",e);
 }
 
-document.addEventListener('DOMContentLoaded', initDevriye);
+}else{
+showAlert("Hata","Yanlış QR!");
+}
+});
+}
+
+window.closeScanner=()=>{
+if(qrScanner) qrScanner.stop();
+document.getElementById("qrScannerModal").style.display="none";
+};
+
+document.getElementById("devriyeEndBtn").onclick=async()=>{
+if(readPoints.length<totalPointsCount){
+showAlert("Uyarı","Eksik nokta var!");
+return;
+}
+const record={
+user:currentUser.username||currentUser.name,
+start:devriyeStartTime.toLocaleTimeString("tr-TR"),
+end:new Date().toLocaleTimeString("tr-TR"),
+points:readPoints,
+timestamp:Date.now()
+};
+await push(ref(db,"devriyeHistory"),record);
+await set(activeDevriyeRef,null);
+showAlert("Tamamlandı","Devriye kaydedildi");
+setTimeout(()=>window.location.href="guvenlik.html",1500);
+};
+
+initDevriye();
+
 </script>
-
 </body>
 </html>
