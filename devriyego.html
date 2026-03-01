@@ -10,7 +10,7 @@
 <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 
 <style>
-body { font-family: 'Segoe UI'; background:#1a202c; color:white; margin:0; padding:10px; display:flex; justify-content:center;}
+body { font-family:'Segoe UI', sans-serif; background:#1a202c; color:white; margin:0; padding:10px; display:flex; justify-content:center;}
 .container { max-width:600px; width:100%; }
 .header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; background:#2d3748; padding:15px; border-radius:12px;}
 .status-box { background:#2d3748; padding:20px; border-radius:12px; text-align:center; margin-bottom:20px;}
@@ -19,8 +19,9 @@ button { padding:10px 15px; border:none; border-radius:8px; cursor:pointer; font
 .qrBtn { background:#3182ce; color:white;}
 .qrBtn.read { background:#38a169;}
 #devriyeEndBtn { background:#e53e3e; width:100%; margin-top:20px;}
-#qrScannerModal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:black; z-index:1000; justify-content:center; align-items:center; flex-direction:column;}
-#qr-reader { width:90%; max-width:400px;}
+#qrScannerModal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); z-index:1000; justify-content:center; align-items:center; flex-direction:column;}
+#qr-reader { width:90%; max-width:400px; border-radius:12px; overflow:hidden; }
+#flashToggle { background:#ecc94b; color:#1a202c; margin-top:10px; width:90%; max-width:400px; padding:12px; border:none; border-radius:12px; cursor:pointer; }
 #customAlertModal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:2000; justify-content:center; align-items:center;}
 .alert-box { background:#2d3748; padding:20px; border-radius:12px; text-align:center; width:90%; max-width:400px;}
 </style>
@@ -43,6 +44,7 @@ button { padding:10px 15px; border:none; border-radius:8px; cursor:pointer; font
 
 <div id="qrScannerModal">
 <div id="qr-reader"></div>
+<button id="flashToggle">🔦 Flaş Aç</button>
 <button onclick="closeScanner()">Kapat</button>
 </div>
 
@@ -55,7 +57,6 @@ button { padding:10px 15px; border:none; border-radius:8px; cursor:pointer; font
 </div>
 
 <script type="module">
-
 import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
 import { getDatabase, ref, get, set, update, push } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-database.js";
 
@@ -65,10 +66,6 @@ document.getElementById("alertMessage").innerText=msg;
 document.getElementById("customAlertModal").style.display="flex";
 }
 window.closeAlert=()=>document.getElementById("customAlertModal").style.display="none";
-
-if(location.protocol !== "https:" && location.hostname !== "localhost"){
-showAlert("Hata","GPS için site HTTPS olmalı!");
-}
 
 const siteID = localStorage.getItem("siteID");
 const siteConfig = JSON.parse(localStorage.getItem("siteConfig"));
@@ -80,59 +77,43 @@ const activeDevriyeRef = ref(db,'activeDevriye/'+(currentUser.username || curren
 
 let devriyeStartTime;
 let readPoints=[];
-let qrScanner;
+let qrScanner=null;
 let totalPointsCount=0;
+let flashOn=false;
 
 function getDistanceInMeters(lat1, lon1, lat2, lon2) {
 const R = 6371000;
 const dLat = (lat2-lat1)*Math.PI/180;
 const dLon = (lon2-lon1)*Math.PI/180;
-const a=Math.sin(dLat/2)*Math.sin(dLat/2)+
-Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*
-Math.sin(dLon/2)*Math.sin(dLon/2);
+const a=Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
 const c=2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 return R*c;
 }
 
+// Full GPS kontrol fonksiyonu
 function gpsKontrol(noktaLat,noktaLon,maxMesafe=30){
 return new Promise((resolve,reject)=>{
-
 if(!navigator.geolocation){
 reject("GPS desteklenmiyor");
 return;
 }
-
 navigator.geolocation.getCurrentPosition(
-
 function(position){
-
-const mesafe=getDistanceInMeters(
-position.coords.latitude,
-position.coords.longitude,
-noktaLat,
-noktaLon
-);
-
+const mesafe=getDistanceInMeters(position.coords.latitude,position.coords.longitude,noktaLat,noktaLon);
 if(mesafe<=maxMesafe){
 resolve(mesafe);
 }else{
 reject("Noktaya "+Math.round(mesafe)+" metre uzaktasınız");
 }
-
 },
-
 function(error){
-reject("Konum alınamadı: "+error.message);
+if(error.code===1) reject("Konum izni verilmedi");
+else if(error.code===2) reject("Konum bilgisi alınamıyor");
+else if(error.code===3) reject("GPS çok zayıf. Açık alana çıkın");
+else reject("Konum hatası: "+error.message);
 },
-
-{
-enableHighAccuracy:true,
-timeout:10000,
-maximumAge:0
-}
-
+{enableHighAccuracy:true, timeout:25000, maximumAge:0}
 );
-
 });
 }
 
@@ -181,27 +162,18 @@ document.getElementById("qrListContainer").appendChild(div);
 }
 
 async function startScanner(point,btn,span){
-
 if(btn.classList.contains("read")) return;
-
 document.getElementById("qrScannerModal").style.display="flex";
 qrScanner=new Html5Qrcode("qr-reader");
-
 qrScanner.start({facingMode:"environment"},{fps:10,qrbox:250},
-
 async msg=>{
-
 if(msg.trim()===point.qrId){
-
 try{
-
 let mesafe=0;
-
 if(point.gpsRequired){
 showAlert("GPS","Konum doğrulanıyor...");
 mesafe=await gpsKontrol(point.lat,point.lon,30);
 }
-
 btn.classList.add("read");
 btn.innerText="Okundu";
 span.style.textDecoration="line-through";
@@ -214,28 +186,30 @@ gpsDistance:mesafe
 });
 
 await update(activeDevriyeRef,{readPoints:readPoints});
-
 await qrScanner.stop();
 closeScanner();
 showAlert("Başarılı","Nokta doğrulandı ✅");
-
 }catch(e){
 showAlert("GPS Hatası",e);
 }
-
 }else{
 showAlert("Hata","Yanlış QR!");
 }
-
 });
-
 }
 
 window.closeScanner=()=>{
-if(qrScanner){
-qrScanner.stop().catch(()=>{});
-}
+if(qrScanner){ qrScanner.stop().catch(()=>{}); qrScanner=null; }
 document.getElementById("qrScannerModal").style.display="none";
+};
+
+document.getElementById("flashToggle").onclick=async()=>{
+if(!qrScanner) return;
+try{
+flashOn=!flashOn;
+await qrScanner.applyVideoConstraints({advanced:[{torch:flashOn}]});
+document.getElementById("flashToggle").innerText=flashOn?'🔦 Flaş Kapat':'🔦 Flaş Aç';
+}catch(e){ showAlert("Bilgi","Flaş bu cihazda desteklenmiyor"); }
 };
 
 document.getElementById("devriyeEndBtn").onclick=async()=>{
@@ -243,7 +217,6 @@ if(readPoints.length<totalPointsCount){
 showAlert("Uyarı","Eksik nokta var!");
 return;
 }
-
 const record={
 user:currentUser.username||currentUser.name,
 start:devriyeStartTime.toLocaleTimeString("tr-TR"),
@@ -251,16 +224,13 @@ end:new Date().toLocaleTimeString("tr-TR"),
 points:readPoints,
 timestamp:Date.now()
 };
-
 await push(ref(db,"devriyeHistory"),record);
 await set(activeDevriyeRef,null);
-
 showAlert("Tamamlandı","Devriye kaydedildi");
 setTimeout(()=>window.location.href="guvenlik.html",1500);
 };
 
 initDevriye();
-
 </script>
 </body>
 </html>
