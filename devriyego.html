@@ -66,6 +66,10 @@ document.getElementById("customAlertModal").style.display="flex";
 }
 window.closeAlert=()=>document.getElementById("customAlertModal").style.display="none";
 
+if(location.protocol !== "https:" && location.hostname !== "localhost"){
+showAlert("Hata","GPS için site HTTPS olmalı!");
+}
+
 const siteID = localStorage.getItem("siteID");
 const siteConfig = JSON.parse(localStorage.getItem("siteConfig"));
 const app = getApps().find(a=>a.name===`siteApp-${siteID}`) || initializeApp(siteConfig,`siteApp-${siteID}`);
@@ -73,7 +77,6 @@ const db = getDatabase(app);
 
 const currentUser = JSON.parse(sessionStorage.getItem("currentUser"));
 const activeDevriyeRef = ref(db,'activeDevriye/'+(currentUser.username || currentUser.name));
-const nobetRecordsRef = ref(db,'nobetRecords');
 
 let devriyeStartTime;
 let readPoints=[];
@@ -93,19 +96,43 @@ return R*c;
 
 function gpsKontrol(noktaLat,noktaLon,maxMesafe=30){
 return new Promise((resolve,reject)=>{
-navigator.geolocation.getCurrentPosition(pos=>{
+
+if(!navigator.geolocation){
+reject("GPS desteklenmiyor");
+return;
+}
+
+navigator.geolocation.getCurrentPosition(
+
+function(position){
+
 const mesafe=getDistanceInMeters(
-pos.coords.latitude,
-pos.coords.longitude,
+position.coords.latitude,
+position.coords.longitude,
 noktaLat,
 noktaLon
 );
+
 if(mesafe<=maxMesafe){
 resolve(mesafe);
 }else{
 reject("Noktaya "+Math.round(mesafe)+" metre uzaktasınız");
 }
-},{enableHighAccuracy:true});
+
+},
+
+function(error){
+reject("Konum alınamadı: "+error.message);
+},
+
+{
+enableHighAccuracy:true,
+timeout:10000,
+maximumAge:0
+}
+
+);
+
 });
 }
 
@@ -154,16 +181,24 @@ document.getElementById("qrListContainer").appendChild(div);
 }
 
 async function startScanner(point,btn,span){
+
+if(btn.classList.contains("read")) return;
+
 document.getElementById("qrScannerModal").style.display="flex";
 qrScanner=new Html5Qrcode("qr-reader");
+
 qrScanner.start({facingMode:"environment"},{fps:10,qrbox:250},
+
 async msg=>{
+
 if(msg.trim()===point.qrId){
 
 try{
+
 let mesafe=0;
+
 if(point.gpsRequired){
-showAlert("GPS Kontrol","Konum doğrulanıyor...");
+showAlert("GPS","Konum doğrulanıyor...");
 mesafe=await gpsKontrol(point.lat,point.lon,30);
 }
 
@@ -175,11 +210,12 @@ readPoints.push({
 name:point.name,
 time:new Date().toLocaleTimeString("tr-TR"),
 gpsRequired:point.gpsRequired||false,
-gpsDistance:mesafe||0
+gpsDistance:mesafe
 });
 
 await update(activeDevriyeRef,{readPoints:readPoints});
-qrScanner.stop();
+
+await qrScanner.stop();
 closeScanner();
 showAlert("Başarılı","Nokta doğrulandı ✅");
 
@@ -190,11 +226,15 @@ showAlert("GPS Hatası",e);
 }else{
 showAlert("Hata","Yanlış QR!");
 }
+
 });
+
 }
 
 window.closeScanner=()=>{
-if(qrScanner) qrScanner.stop();
+if(qrScanner){
+qrScanner.stop().catch(()=>{});
+}
 document.getElementById("qrScannerModal").style.display="none";
 };
 
@@ -203,6 +243,7 @@ if(readPoints.length<totalPointsCount){
 showAlert("Uyarı","Eksik nokta var!");
 return;
 }
+
 const record={
 user:currentUser.username||currentUser.name,
 start:devriyeStartTime.toLocaleTimeString("tr-TR"),
@@ -210,8 +251,10 @@ end:new Date().toLocaleTimeString("tr-TR"),
 points:readPoints,
 timestamp:Date.now()
 };
+
 await push(ref(db,"devriyeHistory"),record);
 await set(activeDevriyeRef,null);
+
 showAlert("Tamamlandı","Devriye kaydedildi");
 setTimeout(()=>window.location.href="guvenlik.html",1500);
 };
